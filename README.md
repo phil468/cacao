@@ -60,3 +60,4 @@ npx cap sync android
 See [architecture](docs/architecture.md), [database design](docs/database-design.md),
 [implementation plan](docs/implementation-plan.md), [API](docs/api.md), and
 [deployment](docs/deployment.md).
+
