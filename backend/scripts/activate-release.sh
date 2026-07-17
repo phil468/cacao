@@ -15,7 +15,10 @@ php artisan db:show >/dev/null; php artisan deploy:backup "$BACKUP"; php artisan
 rm -rf "$RELEASE/public/storage"; ln -s "$ROOT/shared/storage/app/public" "$RELEASE/public/storage"
 php artisan filament:assets; php artisan optimize
 ln -sfn "$RELEASE" "$ROOT/current"
-curl --fail --silent --show-error --max-time 30 "$APP_URL/up" >/dev/null
+curl --fail --location --silent --show-error --max-time 30 \
+    --retry 3 --retry-delay 2 \
+    --header 'Cache-Control: no-cache' \
+    "$APP_URL/up?release=$SHA" >/dev/null
 trap - ERR
 find "$ROOT/releases" -mindepth 1 -maxdepth 1 -type d | sort -r | tail -n +6 | xargs -r rm -rf
 find "$ROOT/backups" -mindepth 1 -maxdepth 1 -type f -name 'database-*.sql' | sort -r | tail -n +11 | xargs -r rm -f
