@@ -11,7 +11,9 @@ test -f "$ROOT/shared/.env"
 ln -s "$ROOT/shared/.env" "$RELEASE/.env"; rm -rf "$RELEASE/storage"; ln -s "$ROOT/shared/storage" "$RELEASE/storage"
 if command -v composer2 >/dev/null 2>&1; then COMPOSER=composer2; else COMPOSER=composer; fi
 cd "$RELEASE"; "$COMPOSER" install --no-dev --no-interaction --optimize-autoloader
-php artisan db:show >/dev/null; php artisan deploy:backup "$BACKUP"; php artisan migrate --force; php artisan storage:link; php artisan filament:assets; php artisan optimize
+php artisan db:show >/dev/null; php artisan deploy:backup "$BACKUP"; php artisan migrate --force
+rm -rf "$RELEASE/public/storage"; ln -s "$ROOT/shared/storage/app/public" "$RELEASE/public/storage"
+php artisan filament:assets; php artisan optimize
 ln -sfn "$RELEASE" "$ROOT/current"
 curl --fail --silent --show-error --max-time 30 "$APP_URL/up" >/dev/null
 trap - ERR
