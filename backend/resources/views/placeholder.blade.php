@@ -1,0 +1,1 @@
+@extends('layouts.store') @section('content')<section><h1>{{ $title }}</h1><p>Esta experiencia se conecta con el checkout seguro de Cacao del Perú.</p><a class="button" href="/catalogo">Volver al catálogo</a></section>@endsection

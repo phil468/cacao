@@ -1,0 +1,16 @@
+
+   PASS  Tests\Feature\ProductionReadinessTest
+  ✓ it filters the public catalog by category cacao percentage and availability                                  0.70s  
+  ✓ it exposes production administration resources only to authorized administrators                             0.94s  
+  ✓ it enforces granular Filament permissions for administrative users                                           0.51s  
+  ✓ it allows an order manager to edit orders even though orders cannot be created in Filament                   0.68s  
+  ✓ it does not reveal whether an email exists during password recovery                                          0.56s  
+  ✓ it uses only an explicitly selected primary product image                                                    0.15s  
+
+   PASS  Tests\Feature\FilamentAccessTest
+  ✓ it allows an administrator to render the core management resources                                           1.42s  
+  ✓ it prevents a customer from accessing the administration panel                                               0.88s  
+
+  Tests:    8 passed (27 assertions)
+  Duration: 6.22s
+

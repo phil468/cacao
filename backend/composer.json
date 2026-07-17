@@ -1,0 +1,39 @@
+{
+  "$schema": "https://getcomposer.org/schema.json",
+  "name": "cacao-del-peru/backend",
+  "type": "project",
+  "description": "Cacao del Perú ecommerce backend",
+  "license": "proprietary",
+  "require": {
+    "php": "^8.2",
+    "filament/filament": "^4.0",
+    "google/auth": "1.52.0",
+    "laravel/framework": "^12.0",
+    "laravel/sanctum": "^4.0",
+    "laravel/socialite": "^5.28",
+    "laravel/tinker": "^2.10",
+    "livewire/livewire": "^3.6",
+    "spatie/laravel-permission": "^6.0"
+  },
+  "require-dev": {
+    "larastan/larastan": "^3.0",
+    "laravel/pint": "^1.24",
+    "laravel/sail": "^1.41",
+    "mockery/mockery": "^1.6",
+    "nunomaduro/collision": "^8.6",
+    "pestphp/pest": "^3.8",
+    "pestphp/pest-plugin-laravel": "^3.2"
+  },
+  "autoload": {"psr-4": {"App\\": "app/", "Database\\Factories\\": "database/factories/", "Database\\Seeders\\": "database/seeders/"}},
+  "autoload-dev": {"psr-4": {"Tests\\": "tests/"}},
+  "scripts": {
+    "post-autoload-dump": ["Illuminate\\Foundation\\ComposerScripts::postAutoloadDump", "@php artisan package:discover --ansi", "@php artisan filament:assets"],
+    "post-create-project-cmd": ["@php artisan key:generate --ansi"],
+    "test": "@php artisan test",
+    "analyse": "@php vendor/bin/phpstan analyse --memory-limit=1G",
+    "format": "@php vendor/bin/pint"
+  },
+  "config": {"optimize-autoloader": true, "preferred-install": "dist", "sort-packages": true, "allow-plugins": {"pestphp/pest-plugin": true}},
+  "minimum-stability": "stable",
+  "prefer-stable": true
+}

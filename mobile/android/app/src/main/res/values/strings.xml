@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Cacao del Perú</string>
+    <string name="title_activity_main">Cacao del Perú</string>
+    <string name="package_name">com.cacaodelperu.app</string>
+    <string name="custom_url_scheme">com.cacaodelperu.app</string>
+</resources>

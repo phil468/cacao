@@ -1,0 +1,8 @@
+@import '@ionic/angular/css/core.css';
+@import '@ionic/angular/css/normalize.css';
+@import '@ionic/angular/css/structure.css';
+@import '@ionic/angular/css/typography.css';
+@import '@ionic/angular/css/padding.css';
+@import '@ionic/angular/css/flex-utils.css';
+
+:root{--ion-color-primary:#4a281c;--ion-color-primary-rgb:74,40,28;--ion-background-color:#f7f1e7;--ion-text-color:#24140f}.mobile-brand{text-align:center;padding:1rem;border-bottom:1px solid rgba(74,40,28,.15)}.mobile-brand img{width:180px;height:76px;object-fit:contain}ion-content{--padding-start:20px;--padding-end:20px}.hero{padding:5rem .5rem;background:radial-gradient(circle at 100% 0,rgba(184,115,66,.25),transparent 35%)}.hero small{letter-spacing:.18em;color:#8a4e2e;font-size:.67rem;font-weight:700}h1{font-family:Georgia,serif;font-size:3.25rem;line-height:.95;font-weight:400}.hero p{line-height:1.7;color:#68493a}.price{font-weight:800;color:#8a4e2e}.mobile-navigation{display:grid;grid-template-columns:repeat(6,1fr);width:100%}.mobile-navigation ion-button{font-size:.62rem;margin:0}.mobile-navigation ion-button.active{font-weight:800;border-top:2px solid var(--ion-color-primary)}.mobile-form{display:grid;gap:1rem;max-width:34rem;margin:2rem auto}.form-error{padding:1rem;background:#f8dddd;color:#7c1d1d}.empty-state{text-align:center;padding:3rem 1rem}.selected-address{--background:#efe2d2;border-left:3px solid var(--ion-color-primary)}.file-field{display:grid;gap:.65rem;margin:1rem 0;padding:1rem;border:1px solid rgba(74,40,28,.25)}.checkout-summary{margin:1rem 0;padding:1rem;background:#fff}.checkout-summary p{display:flex;justify-content:space-between}

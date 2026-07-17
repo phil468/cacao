@@ -1,0 +1,54 @@
+name: Deploy production
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ['Backend CI']
+    branches: [main]
+    types: [completed]
+concurrency: {group: production, cancel-in-progress: false}
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    environment: production
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: '${{ github.event.workflow_run.head_sha || github.sha }}'
+      - uses: shivammathur/setup-php@v2
+        with: {php-version: '8.2', coverage: none}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - working-directory: backend
+        run: composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader
+      - working-directory: backend
+        run: npm ci --no-audit --no-fund
+      - working-directory: backend
+        run: npm run build
+      - run: tar --exclude='.env' --exclude='node_modules' --exclude='storage/logs/*' -czf backend.tar.gz -C backend .
+      - uses: webfactory/ssh-agent@v0.9.0
+        with: {ssh-private-key: '${{ secrets.HOSTINGER_SSH_KEY }}'}
+      - name: Trust the Hostinger SSH host key
+        run: mkdir -p ~/.ssh && printf '%s\n' "${{ secrets.HOSTINGER_KNOWN_HOSTS }}" > ~/.ssh/known_hosts && chmod 600 ~/.ssh/known_hosts
+      - name: Upload release and activation script
+        env:
+          HOST: '${{ secrets.HOSTINGER_HOST }}'
+          PORT: '${{ secrets.HOSTINGER_PORT }}'
+          USER: '${{ secrets.HOSTINGER_USER }}'
+          PATH_ROOT: '${{ secrets.HOSTINGER_DEPLOY_PATH }}'
+          RELEASE_ID: '${{ github.event.workflow_run.head_sha || github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}'
+        run: |
+          ssh -p "$PORT" -o StrictHostKeyChecking=yes "$USER@$HOST" "mkdir -p '$PATH_ROOT/incoming' '$PATH_ROOT/scripts'"
+          scp -P "$PORT" -o StrictHostKeyChecking=yes backend.tar.gz "$USER@$HOST:$PATH_ROOT/incoming/cacao-$RELEASE_ID.tar.gz"
+          scp -P "$PORT" -o StrictHostKeyChecking=yes backend/scripts/activate-release.sh "$USER@$HOST:$PATH_ROOT/scripts/activate-release.sh"
+      - name: Activate release with backup and rollback trap
+        env:
+          HOST: '${{ secrets.HOSTINGER_HOST }}'
+          PORT: '${{ secrets.HOSTINGER_PORT }}'
+          USER: '${{ secrets.HOSTINGER_USER }}'
+          PATH_ROOT: '${{ secrets.HOSTINGER_DEPLOY_PATH }}'
+          APP_URL: '${{ secrets.HOSTINGER_APP_URL }}'
+          RELEASE_ID: '${{ github.event.workflow_run.head_sha || github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}'
+        run: |
+          ssh -p "$PORT" -o StrictHostKeyChecking=yes "$USER@$HOST" \
+            "chmod 700 '$PATH_ROOT/scripts/activate-release.sh' && bash '$PATH_ROOT/scripts/activate-release.sh' '$RELEASE_ID' '$PATH_ROOT/incoming/cacao-$RELEASE_ID.tar.gz' '$APP_URL'"

@@ -1,0 +1,1 @@
+@extends('layouts.store') @section('content')<section><h1>{{ $title }}</h1>@foreach($items as $item)<details><summary>{{ $item->question }}</summary><p>{{ $item->answer }}</p></details>@endforeach</section>@endsection

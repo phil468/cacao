@@ -1,0 +1,5 @@
+@extends('layouts.store', ['title' => 'Ingresar | Cacao del Perú'])
+@section('content')
+<section class="auth-page"><div class="form-card"><span class="eyebrow">TU CUENTA</span><h1>Ingresa para continuar</h1>@if($errors->any())<div class="notice error">{{ $errors->first() }}</div>@endif<a class="google-button" href="{{ route('auth.google.redirect') }}"><span>G</span> Continuar con Google</a><div class="auth-divider"><span>o usa tu correo</span></div><form method="post" action="{{ route('login.store') }}">@csrf<label>Correo electrónico<input type="email" name="email" value="{{ old('email') }}" required autofocus></label><label>Contraseña<input type="password" name="password" required></label><label class="check-field"><input type="checkbox" name="remember" value="1"> Recordarme</label><button>Ingresar</button></form><p>¿Primera compra? <a href="{{ route('register') }}"><u>Crea tu cuenta</u></a>.</p></div></section>
+<div class="auth-recovery"><a href="{{ route('password.request') }}"><u>Olvidé mi contraseña</u></a></div>
+@endsection

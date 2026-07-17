@@ -1,0 +1,18 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('coupons', fn (Blueprint $table) => $table->boolean('once_per_customer')->default(false)->after('usage_count'));
+    }
+
+    public function down(): void
+    {
+        Schema::table('coupons', fn (Blueprint $table) => $table->dropColumn('once_per_customer'));
+    }
+};

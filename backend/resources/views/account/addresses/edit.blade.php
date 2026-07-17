@@ -1,0 +1,2 @@
+@extends('layouts.store', ['title' => 'Editar dirección | Cacao del Perú'])
+@section('content')<section><div class="form-card"><span class="eyebrow">MI CUENTA</span><h1>Editar dirección</h1>@if($errors->any())<div class="notice error">{{ $errors->first() }}</div>@endif<form method="post" action="{{ route('account.addresses.update', $address) }}">@csrf @method('PUT') @include('account.addresses.form', ['address' => $address])<button>Guardar cambios</button></form></div></section>@endsection

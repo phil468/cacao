@@ -1,0 +1,1 @@
+$tools=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\.tools')); if(-not(Test-Path(Join-Path $tools 'activate.ps1'))){throw 'Run scripts/install-local-tools.ps1 first.'}; . (Join-Path $tools 'activate.ps1'); Write-Host "Local tools activated from $tools"
