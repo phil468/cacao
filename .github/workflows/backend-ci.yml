@@ -19,7 +19,8 @@ jobs:
       - run: cp .env.example .env && php artisan key:generate && touch database/database.sqlite
       - run: php artisan migrate --force
         env: {DB_CONNECTION: sqlite, DB_DATABASE: database/database.sqlite}
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
       - run: vendor/bin/pint --test
       - run: vendor/bin/phpstan analyse --memory-limit=1G
       - run: php artisan test
-      - run: npm ci --no-audit --no-fund && npm run build
