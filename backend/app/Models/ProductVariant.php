@@ -47,6 +47,13 @@ class ProductVariant extends Model
 
     public function currentPriceAmount(): int
     {
-        return $this->promotional_price_amount !== null && $this->promotional_price_amount < $this->price_amount ? (int) $this->promotional_price_amount : (int) $this->price_amount;
+        return $this->hasActivePromotion() ? (int) $this->promotional_price_amount : (int) $this->price_amount;
+    }
+
+    public function hasActivePromotion(): bool
+    {
+        return $this->promotional_price_amount !== null
+            && $this->promotional_price_amount > 0
+            && $this->promotional_price_amount < $this->price_amount;
     }
 }

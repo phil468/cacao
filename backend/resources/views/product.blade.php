@@ -18,7 +18,7 @@
                 @php($variantImage = $variant->images->sortBy('sort_order')->first())
                 <article id="variant-{{ $variant->id }}" class="variant-shop-row {{ $variant->stock < 1 ? 'unavailable' : '' }}" @if($variantImage) data-variant-image="{{ asset('storage/'.$variantImage->path) }}" data-variant-alt="{{ $variantImage->alt_text ?: $product->name.' '.$variant->name }}" tabindex="0" @endif>
                     <div><b>{{ $variant->name }}</b><small>{{ $variant->cacao_percentage ? $variant->cacao_percentage.'% cacao · ' : '' }}{{ $variant->weight_grams }} g · {{ $variant->stock > 0 ? $variant->stock.' disponibles' : 'Agotado' }}</small></div>
-                    <strong>S/ {{ number_format($variant->currentPriceAmount() / 100, 2) }}</strong>
+                    <x-store-price :variant="$variant" />
                     @if($variant->stock > 0)
                     <form method="post" action="{{ route('cart.store') }}">@csrf<input type="hidden" name="variant_id" value="{{ $variant->id }}"><label><span class="sr-only">Cantidad de {{ $variant->name }}</span><input type="number" name="quantity" value="1" min="1" max="{{ min(50, $variant->stock) }}" required></label><button type="submit">Agregar</button></form>
                     @else<span class="stock-out">Agotado</span>@endif

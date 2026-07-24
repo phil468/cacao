@@ -48,7 +48,7 @@
                     <h2><a href="{{ route('product', $product) }}#variant-{{ $variant->id }}">{{ $variant->name }}</a></h2>
                     <p class="variant-parent">{{ $product->name }}</p>
                     <p>{{ $variant->cacao_percentage ? $variant->cacao_percentage.'% cacao · ' : '' }}{{ $variant->weight_grams }} g</p>
-                    @if($variant->stock > 0)<strong>S/ {{ number_format($variant->currentPriceAmount() / 100, 2) }}</strong>@else<span class="stock-out">Agotado</span>@endif
+                    @if($variant->stock > 0)<x-store-price :variant="$variant" />@else<span class="stock-out">Agotado</span>@endif
                     <a class="card-action" href="{{ route('product', $product) }}#variant-{{ $variant->id }}">Ver y agregar</a>
                 </div>
             </article>
