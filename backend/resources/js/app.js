@@ -139,6 +139,37 @@ if (productHero) {
     document.querySelector('.variant-shop-list')?.addEventListener('mouseleave', restoreProductImage);
 }
 
+document.querySelectorAll('[data-variant-card-carousel]').forEach(carousel => {
+    const slides = [...carousel.querySelectorAll('.variant-card-slide')];
+    let current = 0;
+    let timer = null;
+    const show = index => {
+        current = index % slides.length;
+        slides.forEach((slide, position) => {
+            const active = position === current;
+            slide.classList.toggle('is-active', active);
+            slide.setAttribute('aria-hidden', String(!active));
+        });
+    };
+    const stop = () => {
+        if (timer) window.clearInterval(timer);
+        timer = null;
+    };
+    const start = () => {
+        stop();
+        if (slides.length < 2 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        timer = window.setInterval(() => show(current + 1), 1300);
+    };
+    const reset = () => {
+        stop();
+        show(0);
+    };
+    carousel.addEventListener('mouseenter', start);
+    carousel.addEventListener('mouseleave', reset);
+    carousel.addEventListener('focusin', start);
+    carousel.addEventListener('focusout', reset);
+});
+
 const mapElement = document.querySelector('[data-address-map]');
 if (mapElement) {
     const form = mapElement.closest('form');

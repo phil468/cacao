@@ -16,10 +16,33 @@
     </form>
     <div class="grid variant-catalog-grid">
         @forelse($variants as $variant)
-            @php($product = $variant->product)
-            @php($image = $variant->images->sortBy('sort_order')->first() ?? $product->images->whereNull('product_variant_id')->firstWhere('is_primary', true))
+            @php
+                $product = $variant->product;
+                $variantImages = $variant->images->sortBy('sort_order')->values();
+                $fallbackImage = $product->images->whereNull('product_variant_id')->firstWhere('is_primary', true);
+                $cardImages = $variantImages->isNotEmpty()
+                    ? $variantImages
+                    : ($fallbackImage ? collect([$fallbackImage]) : collect());
+            @endphp
             <article class="card variant-card">
-                <a href="{{ route('product', $product) }}#variant-{{ $variant->id }}"><div class="card-media{{ $image ? ' has-hover-image' : '' }}"><div class="image"><span>{{ $product->category?->name ?? 'Selección peruana' }}</span><b>{{ $product->name }}</b></div>@if($image)<img class="product-card-image hover-product-image" src="{{ asset('storage/'.$image->path) }}" alt="{{ $image->alt_text ?: $product->name.' '.$variant->name }}" loading="lazy">@endif</div></a>
+                <a href="{{ route('product', $product) }}#variant-{{ $variant->id }}">
+                    <div class="card-media variant-image-carousel" @if($cardImages->count() > 1) data-variant-card-carousel @endif>
+                        @forelse($cardImages as $image)
+                            <img
+                                class="product-card-image variant-card-slide{{ $loop->first ? ' is-active' : '' }}"
+                                src="{{ asset('storage/'.$image->path) }}"
+                                alt="{{ $image->alt_text ?: $product->name.' '.$variant->name }}"
+                                loading="lazy"
+                                @if(!$loop->first) aria-hidden="true" @endif
+                            >
+                        @empty
+                            <div class="image"><span>{{ $product->category?->name ?? 'Selección peruana' }}</span><b>{{ $product->name }}</b></div>
+                        @endforelse
+                        @if($cardImages->count() > 1)
+                            <span class="variant-carousel-count" aria-hidden="true">{{ $cardImages->count() }} imágenes</span>
+                        @endif
+                    </div>
+                </a>
                 <div class="card-body">
                     <small>{{ $product->category?->name ?? 'Selección peruana' }}</small>
                     <h2><a href="{{ route('product', $product) }}#variant-{{ $variant->id }}">{{ $variant->name }}</a></h2>
