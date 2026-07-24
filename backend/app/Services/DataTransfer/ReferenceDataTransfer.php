@@ -7,6 +7,21 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
+/**
+ * @phpstan-type Row array<string, mixed>
+ * @phpstan-type Rows list<Row>
+ * @phpstan-type IdMap array<int, int>
+ * @phpstan-type CountMap array<string, int>
+ * @phpstan-type AssetReport array{exported: list<string>, missing: list<string>}
+ * @phpstan-type Payload array{
+ *     format_version: int,
+ *     generated_at?: mixed,
+ *     source_environment?: mixed,
+ *     includes_stock?: mixed,
+ *     excluded_data?: mixed,
+ *     data: array<string, Rows>
+ * }
+ */
 class ReferenceDataTransfer
 {
     private const FORMAT_VERSION = 1;
@@ -22,6 +37,9 @@ class ReferenceDataTransfer
         'roles' => ['name', 'guard_name'],
     ];
 
+    /**
+     * @return array{directory: string, row_counts: CountMap, assets: AssetReport, includes_stock: bool}
+     */
     public function export(string $directory, bool $includeStock = false): array
     {
         $directory = rtrim($directory, DIRECTORY_SEPARATOR);
@@ -95,6 +113,15 @@ class ReferenceDataTransfer
         ];
     }
 
+    /**
+     * @return array{
+     *     generated_at: mixed,
+     *     source_environment: mixed,
+     *     includes_stock: bool,
+     *     row_counts: CountMap,
+     *     excluded_data: list<string>
+     * }
+     */
     public function inspect(string $directory): array
     {
         $payload = $this->readPayload($directory);
@@ -108,6 +135,9 @@ class ReferenceDataTransfer
         ];
     }
 
+    /**
+     * @return array{row_counts: CountMap, includes_stock: bool}
+     */
     public function import(string $directory): array
     {
         $payload = $this->readPayload($directory);
@@ -141,6 +171,10 @@ class ReferenceDataTransfer
         });
     }
 
+    /**
+     * @param  Rows  $rows
+     * @return IdMap
+     */
     private function importCategories(array $rows): array
     {
         $ids = [];
@@ -159,6 +193,11 @@ class ReferenceDataTransfer
         return $ids;
     }
 
+    /**
+     * @param  Rows  $rows
+     * @param  IdMap  $categoryIds
+     * @return IdMap
+     */
     private function importProducts(array $rows, array $categoryIds): array
     {
         $ids = [];
@@ -173,6 +212,11 @@ class ReferenceDataTransfer
         return $ids;
     }
 
+    /**
+     * @param  Rows  $rows
+     * @param  IdMap  $productIds
+     * @return IdMap
+     */
     private function importVariants(array $rows, array $productIds, bool $includesStock): array
     {
         $ids = [];
@@ -190,6 +234,11 @@ class ReferenceDataTransfer
         return $ids;
     }
 
+    /**
+     * @param  Rows  $rows
+     * @param  IdMap  $productIds
+     * @param  IdMap  $variantIds
+     */
     private function importImages(array $rows, array $productIds, array $variantIds): int
     {
         foreach ($rows as $row) {
@@ -206,6 +255,10 @@ class ReferenceDataTransfer
         return count($rows);
     }
 
+    /**
+     * @param  Rows  $rows
+     * @return IdMap
+     */
     private function importZones(array $rows): array
     {
         $ids = [];
@@ -218,6 +271,10 @@ class ReferenceDataTransfer
         return $ids;
     }
 
+    /**
+     * @param  Rows  $rows
+     * @param  IdMap  $zoneIds
+     */
     private function importRates(array $rows, array $zoneIds): int
     {
         foreach ($rows as $row) {
@@ -230,6 +287,10 @@ class ReferenceDataTransfer
         return count($rows);
     }
 
+    /**
+     * @param  Rows  $rows
+     * @param  list<string>  $keys
+     */
     private function upsertRows(string $table, array $rows, array $keys): int
     {
         foreach ($rows as $row) {
@@ -243,6 +304,9 @@ class ReferenceDataTransfer
         return count($rows);
     }
 
+    /**
+     * @param  array<string, Rows>  $data
+     */
     private function importRolePermissions(array $data): int
     {
         $permissionIds = collect($data['permissions'] ?? [])->mapWithKeys(fn (array $row) => [
@@ -266,6 +330,10 @@ class ReferenceDataTransfer
         return count($data['role_has_permissions'] ?? []);
     }
 
+    /**
+     * @param  array<string, Rows>  $data
+     * @return AssetReport
+     */
     private function exportAssets(array $data, string $directory): array
     {
         $paths = collect($data['product_images'] ?? [])->pluck('path')
@@ -309,6 +377,9 @@ class ReferenceDataTransfer
         return $count;
     }
 
+    /**
+     * @return Payload
+     */
     private function readPayload(string $directory): array
     {
         $path = rtrim($directory, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'reference-data.json';
@@ -323,6 +394,11 @@ class ReferenceDataTransfer
         return $payload;
     }
 
+    /**
+     * @param  Row  $row
+     * @param  list<string>  $keys
+     * @return Row
+     */
     private function without(array $row, array $keys): array
     {
         foreach ($keys as $key) {
