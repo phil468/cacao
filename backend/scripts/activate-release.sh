@@ -21,6 +21,10 @@ rm -rf "$RELEASE/public/storage"
 ln -s "../../../shared/storage/app/public" "$RELEASE/public/storage"
 php artisan filament:assets; php artisan optimize
 ln -sfn "releases/$SHA" "$ROOT/current"
+PUBLIC_ROOT="$ROOT/../public_html"
+if [ -d "$PUBLIC_ROOT" ]; then
+    ln -sfn "../$(basename "$ROOT")/current/public" "$PUBLIC_ROOT/current"
+fi
 curl --fail --location --silent --show-error --max-time 30 \
     --retry 3 --retry-delay 2 \
     --header 'Cache-Control: no-cache' \
