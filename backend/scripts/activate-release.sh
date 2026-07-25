@@ -30,5 +30,22 @@ curl --fail --location --silent --show-error --max-time 30 \
     --header 'Cache-Control: no-cache' \
     "$APP_URL/up?release=$SHA" >/dev/null
 trap - ERR
-find "$ROOT/releases" -mindepth 1 -maxdepth 1 -type d | sort -r | tail -n +6 | xargs -r rm -rf
-find "$ROOT/backups" -mindepth 1 -maxdepth 1 -type f -name 'database-*.sql' | sort -r | tail -n +11 | xargs -r rm -f
+mapfile -t RELEASES_TO_DELETE < <(
+    find "$ROOT/releases" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' \
+        | sort -nr \
+        | tail -n +6 \
+        | cut -d' ' -f2-
+)
+if ((${#RELEASES_TO_DELETE[@]})); then
+    rm -rf -- "${RELEASES_TO_DELETE[@]}"
+fi
+
+mapfile -t BACKUPS_TO_DELETE < <(
+    find "$ROOT/backups" -mindepth 1 -maxdepth 1 -type f -name 'database-*.sql' -printf '%T@ %p\n' \
+        | sort -nr \
+        | tail -n +11 \
+        | cut -d' ' -f2-
+)
+if ((${#BACKUPS_TO_DELETE[@]})); then
+    rm -f -- "${BACKUPS_TO_DELETE[@]}"
+fi
