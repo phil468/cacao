@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * @property int $id
  * @property string $code
+ * @property string $provider
  * @property string $name
  * @property string|null $instructions
  * @property string|null $image_path

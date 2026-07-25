@@ -5,6 +5,59 @@ import 'leaflet/dist/leaflet.css';
 window.axios = axios;
 window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
 
+const analyticsId = document.body.dataset.gaId;
+const consentBanner = document.querySelector('[data-consent-banner]');
+const loadAnalytics = () => {
+    if (!analyticsId || window.gtag) return;
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = function () { window.dataLayer.push(arguments); };
+    window.gtag('js', new Date());
+    window.gtag('config', analyticsId, { anonymize_ip: true });
+    const script = document.createElement('script');
+    script.async = true;
+    script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(analyticsId)}`;
+    document.head.appendChild(script);
+};
+const analyticsConsent = window.localStorage.getItem('cacao_analytics_consent');
+if (analyticsConsent === 'granted') loadAnalytics();
+else if (analyticsId && analyticsConsent === null) consentBanner?.removeAttribute('hidden');
+consentBanner?.querySelector('[data-consent-accept]')?.addEventListener('click', () => {
+    window.localStorage.setItem('cacao_analytics_consent', 'granted');
+    consentBanner.hidden = true;
+    loadAnalytics();
+});
+consentBanner?.querySelector('[data-consent-reject]')?.addEventListener('click', () => {
+    window.localStorage.setItem('cacao_analytics_consent', 'denied');
+    consentBanner.hidden = true;
+});
+window.storefrontTrack = (eventName, parameters = {}) => {
+    if (window.localStorage.getItem('cacao_analytics_consent') === 'granted') window.gtag?.('event', eventName, parameters);
+};
+document.querySelectorAll('[data-analytics-event]').forEach(element => element.addEventListener('click', () => {
+    window.storefrontTrack(element.dataset.analyticsEvent, {
+        method: element.dataset.analyticsMethod,
+        content_type: element.dataset.analyticsContent,
+    });
+}));
+document.querySelectorAll('[data-add-to-cart]').forEach(form => form.addEventListener('submit', () => {
+    const quantity = Number(form.querySelector('[name="quantity"]')?.value || 1);
+    window.storefrontTrack('add_to_cart', {
+        currency: 'PEN',
+        value: Number(form.dataset.price) * quantity,
+        items: [{ item_id: form.dataset.itemId, item_name: form.dataset.itemName, price: Number(form.dataset.price), quantity }],
+    });
+}));
+const productAnalytics = document.querySelector('[data-product-analytics]');
+if (productAnalytics) {
+    window.storefrontTrack('view_item', {
+        currency: 'PEN',
+        value: Number(productAnalytics.dataset.price || 0),
+        items: [{ item_id: productAnalytics.dataset.itemId, item_name: productAnalytics.dataset.itemName, price: Number(productAnalytics.dataset.price || 0) }],
+    });
+}
+const purchaseAnalytics = document.querySelector('[data-purchase-analytics]');
+if (purchaseAnalytics) window.storefrontTrack('purchase', JSON.parse(purchaseAnalytics.dataset.purchaseAnalytics));
+
 const bannerCarousel = document.querySelector('[data-banner-carousel]');
 if (bannerCarousel) {
     const slides = [...bannerCarousel.querySelectorAll('[data-banner-slide]')];
@@ -62,9 +115,15 @@ if (proofInput) {
     const refreshProofRequirement = () => {
         const selected = document.querySelector('[name="payment_method_id"]:checked');
         const required = selected?.dataset.requiresProof === '1';
+        const isIzipay = selected?.dataset.provider === 'izipay';
         proofInput.required = required;
         document.querySelector('[data-proof-required]').textContent = required ? '* Obligatoria' : 'Opcional';
         document.querySelector('[data-proof-upload]').classList.toggle('is-required', required);
+        const izipayFields = document.querySelector('[data-izipay-fields]');
+        if (izipayFields) {
+            izipayFields.hidden = !isIzipay;
+            izipayFields.querySelectorAll('input, select').forEach(input => input.required = isIzipay);
+        }
     };
     proofInput.addEventListener('change', () => {
         const name = proofInput.files?.[0]?.name;
@@ -77,15 +136,32 @@ if (proofInput) {
 
 const checkoutForm = document.querySelector('[data-checkout-form]');
 if (checkoutForm) {
+    window.storefrontTrack('begin_checkout', { currency: 'PEN' });
     const money = amount => new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(amount / 100);
     const box = checkoutForm.querySelector('[data-quote-box]');
     const refresh = async () => {
+        const fulfillmentType = checkoutForm.querySelector('[name="fulfillment_type"]:checked')?.value || 'delivery';
         const district = checkoutForm.querySelector('[name="district"]').value.trim();
-        if (!district) return;
-        box.classList.remove('has-error', 'has-success');
+        const pickupLocationId = checkoutForm.querySelector('[name="pickup_location_id"]:checked')?.value || null;
+        if (fulfillmentType === 'delivery' && !district) {
+            box.classList.add('needs-attention');
+            box.querySelector('[data-quote-message]').innerHTML = '<strong>Falta un paso:</strong> selecciona tu distrito para calcular envío y total.';
+            return;
+        }
+        if (fulfillmentType === 'pickup' && !pickupLocationId) {
+            box.classList.add('needs-attention');
+            box.querySelector('[data-quote-message]').innerHTML = '<strong>Falta un paso:</strong> selecciona el local o feria donde recogerás tu pedido.';
+            return;
+        }
+        box.classList.remove('has-error', 'has-success', 'needs-attention');
         box.querySelector('[data-quote-message]').textContent = 'Calculando…';
         try {
-            const { data } = await axios.post(checkoutForm.dataset.quoteUrl, { district, coupon_code: checkoutForm.querySelector('[name="coupon_code"]').value.trim() });
+            const { data } = await axios.post(checkoutForm.dataset.quoteUrl, {
+                fulfillment_type: fulfillmentType,
+                pickup_location_id: pickupLocationId,
+                district,
+                coupon_code: checkoutForm.querySelector('[name="coupon_code"]').value.trim(),
+            });
             box.querySelector('[data-quote-subtotal]').textContent = money(data.subtotal_amount);
             box.querySelector('[data-quote-discount]').textContent = `− ${money(data.discount_amount)}`;
             box.querySelector('[data-quote-delivery]').textContent = money(data.delivery_amount);
@@ -116,7 +192,26 @@ if (checkoutForm) {
         refresh();
     });
     checkoutForm.querySelector('[data-apply-coupon]').addEventListener('click', refresh);
-    refresh();
+    const deliveryFields = checkoutForm.querySelector('[data-delivery-fields]');
+    const pickupFields = checkoutForm.querySelector('[data-pickup-fields]');
+    const lineOneInput = checkoutForm.querySelector('[name="line_one"]');
+    const provinceInput = checkoutForm.querySelector('[name="province"]');
+    const departmentInput = checkoutForm.querySelector('[name="department"]');
+    const pickupInputs = checkoutForm.querySelectorAll('[name="pickup_location_id"]');
+    const updateFulfillment = () => {
+        const isPickup = checkoutForm.querySelector('[name="fulfillment_type"]:checked')?.value === 'pickup';
+        deliveryFields.hidden = isPickup;
+        if (pickupFields) pickupFields.hidden = !isPickup;
+        districtInput.required = !isPickup;
+        lineOneInput.required = !isPickup;
+        provinceInput.required = !isPickup;
+        departmentInput.required = !isPickup;
+        pickupInputs.forEach(input => input.required = isPickup);
+        refresh();
+    };
+    checkoutForm.querySelectorAll('[name="fulfillment_type"]').forEach(input => input.addEventListener('change', updateFulfillment));
+    pickupInputs.forEach(input => input.addEventListener('change', refresh));
+    updateFulfillment();
 }
 
 const productHero = document.querySelector('[data-product-hero]');

@@ -20,7 +20,7 @@
                     </article>
                 @endforeach
             </div>
-            <aside class="cart-summary"><span class="eyebrow">RESUMEN</span><div><span>Subtotal</span><strong>S/ {{ number_format($subtotal / 100, 2) }}</strong></div><p>El envío y los descuentos se calcularán en el checkout.</p><a class="button" href="{{ route('checkout') }}">Continuar compra</a></aside>
+            <aside class="cart-summary"><span class="eyebrow">RESUMEN</span><div><span>Subtotal</span><strong>S/ {{ number_format($subtotal / 100, 2) }}</strong></div><p>El envío y los descuentos se calcularán en el checkout.</p><a class="button" href="{{ route('checkout') }}" data-analytics-event="begin_checkout">Continuar compra</a></aside>
         </div>
     @endif
 </section>

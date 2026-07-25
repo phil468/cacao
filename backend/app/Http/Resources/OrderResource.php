@@ -17,6 +17,8 @@ class OrderResource extends JsonResource
             'number' => $this->number,
             'status' => $this->status->only(['code', 'name']),
             'payment_method' => $this->whenLoaded('paymentMethod', fn () => $this->paymentMethod->only(['code', 'name'])),
+            'fulfillment_type' => $this->fulfillment_type,
+            'pickup_location' => $this->pickup_location_snapshot,
             'subtotal_amount' => $this->subtotal_amount,
             'discount_amount' => $this->discount_amount,
             'delivery_amount' => $this->delivery_amount,

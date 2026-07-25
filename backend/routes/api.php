@@ -5,8 +5,10 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CheckoutController;
 use App\Http\Controllers\Api\V1\CheckoutQuoteController;
 use App\Http\Controllers\Api\V1\CommerceOptionsController;
+use App\Http\Controllers\Api\V1\FavoriteController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\PushDeviceController;
+use App\Http\Controllers\IzipayPaymentController;
 use App\Http\Controllers\WhatsAppWebhookController;
 use App\Http\Resources\OrderResource;
 use App\Models\Order;
@@ -15,6 +17,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('webhooks/whatsapp', [WhatsAppWebhookController::class, 'verify']);
 Route::post('webhooks/whatsapp', [WhatsAppWebhookController::class, 'handle']);
+Route::post('webhooks/izipay', [IzipayPaymentController::class, 'webhook'])
+    ->middleware('throttle:60,1')
+    ->name('izipay.webhook');
 
 Route::prefix('v1')->group(function () {
     Route::middleware('throttle:auth')->group(function () {
@@ -34,7 +39,10 @@ Route::prefix('v1')->group(function () {
         Route::post('checkout', CheckoutController::class);
         Route::post('push-devices', [PushDeviceController::class, 'store']);
         Route::delete('push-devices', [PushDeviceController::class, 'destroy']);
-        Route::get('orders', fn (Request $r) => OrderResource::collection($r->user()->orders()->with('status', 'paymentMethod')->latest()->paginate()));
+        Route::get('favorites', [FavoriteController::class, 'index']);
+        Route::put('favorites/{variant}', [FavoriteController::class, 'store']);
+        Route::delete('favorites/{variant}', [FavoriteController::class, 'destroy']);
+        Route::get('orders', fn (Request $r) => OrderResource::collection($r->user()->orders()->with('items', 'status', 'paymentMethod')->latest()->paginate()));
         Route::get('orders/{order}', function (Request $r, Order $order) {
             abort_unless($order->user_id === $r->user()->id, 403);
 

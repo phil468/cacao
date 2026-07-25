@@ -5,6 +5,7 @@ use App\Http\Controllers\AccountOrderController;
 use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\GoogleAuthController;
+use App\Http\Controllers\IzipayPaymentController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\StorefrontAuthController;
 use App\Http\Controllers\StorefrontCartController;
@@ -22,15 +23,16 @@ Route::get('/', fn () => view('home', [
     'banners' => Banner::published()->orderBy('sort_order')->orderBy('id')->get(),
     'carouselIntervalSeconds' => max(2, min(60, (int) data_get(BusinessSetting::getValue('business.storefront', []), 'carousel_interval_seconds', 7))),
 ]))->name('home');
-Route::get('/robots.txt', fn () => response("User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /mi-cuenta\nSitemap: ".url('/sitemap.xml')."\n", 200, ['Content-Type' => 'text/plain']));
+Route::get('/robots.txt', fn () => response("User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api\nDisallow: /carrito\nDisallow: /checkout\nDisallow: /ingresar\nDisallow: /registro\nDisallow: /mi-cuenta\nSitemap: ".url('/sitemap.xml')."\n", 200, ['Content-Type' => 'text/plain']));
 Route::get('/sitemap.xml', function () {
-    $urls = collect([route('home'), route('catalog'), route('faq'), route('contact')])
+    $urls = collect([route('home'), route('catalog'), route('local.chocolates'), route('faq'), route('contact')])
         ->merge(Product::where('is_active', true)->pluck('slug')->map(fn (string $slug): string => route('product', $slug)))
         ->merge(Category::where('is_active', true)->pluck('slug')->map(fn (string $slug): string => route('category', $slug)));
 
     return response(view('sitemap', ['urls' => $urls])->render(), 200, ['Content-Type' => 'application/xml']);
 })->name('sitemap');
 Route::get('/catalogo', [CatalogController::class, 'index'])->name('catalog');
+Route::view('/chocolates-en-ica', 'local-chocolates')->name('local.chocolates');
 Route::get('/categoria/{category:slug}', [CatalogController::class, 'index'])->name('category');
 Route::get('/producto/{product:slug}', function (Product $product) {
     abort_unless($product->is_active, 404);
@@ -64,6 +66,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/checkout', [StorefrontCheckoutController::class, 'index'])->name('checkout');
     Route::post('/checkout', [StorefrontCheckoutController::class, 'store'])->middleware('throttle:sensitive')->name('checkout.store');
     Route::post('/checkout/resumen', [StorefrontCheckoutController::class, 'quote'])->middleware('throttle:60,1')->name('checkout.quote');
+    Route::get('/checkout/izipay/{order}', [IzipayPaymentController::class, 'show'])->name('checkout.izipay');
+    Route::post('/checkout/izipay/{order}/respuesta', [IzipayPaymentController::class, 'response'])
+        ->middleware('throttle:sensitive')
+        ->name('checkout.izipay.response');
     Route::get('/checkout/completado/{order}', function (Order $order) {
         abort_unless($order->user_id === auth()->id(), 403);
 

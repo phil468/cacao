@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StorefrontCheckoutRequest;
 use App\Models\DeliveryRate;
 use App\Models\PaymentMethod;
+use App\Models\PickupLocation;
 use App\Models\ProductVariant;
 use App\Services\CheckoutQuoteService;
 use App\Services\CheckoutService;
@@ -31,6 +32,7 @@ class StorefrontCheckoutController extends Controller
             'user' => $request->user(),
             'defaultAddress' => $request->user()->addresses()->where('is_default', true)->first() ?? $request->user()->addresses()->latest()->first(),
             'districts' => IcaDistricts::all(),
+            'pickupLocations' => PickupLocation::available()->orderBy('starts_at')->orderBy('name')->get(),
         ]);
     }
 
@@ -44,10 +46,29 @@ class StorefrontCheckoutController extends Controller
         abort_if($items === [], 422, 'El carrito está vacío.');
         $data = $request->validated();
         $proofPath = $request->file('payment_proof')?->store('payment-proofs', 'public');
+        $fulfillmentType = (string) $data['fulfillment_type'];
         $address = array_intersect_key($data, array_flip(['recipient_name', 'phone', 'line_one', 'reference', 'district', 'province', 'department']));
-        $deliveryRate = $this->resolveDeliveryRate((string) $data['district']);
-        $order = $checkout->checkout($user, $items, $address, (int) $data['payment_method_id'], $deliveryRate->id, $data['coupon_code'] ?? null, $proofPath, $request->boolean('whatsapp_updates_opt_in'));
+        $deliveryRateId = $fulfillmentType === 'delivery' ? $this->resolveDeliveryRate((string) $data['district'])->id : null;
+        $order = $checkout->checkout(
+            $user,
+            $items,
+            $address,
+            (int) $data['payment_method_id'],
+            $deliveryRateId,
+            $data['coupon_code'] ?? null,
+            $proofPath,
+            $request->boolean('whatsapp_updates_opt_in'),
+            $request->session()->get('marketing_attribution'),
+            $fulfillmentType,
+            isset($data['pickup_location_id']) ? (int) $data['pickup_location_id'] : null,
+            $data['billing_document_type'] ?? null,
+            $data['billing_document_number'] ?? null,
+        );
         $request->session()->forget('storefront_cart');
+
+        if ($order->paymentMethod->provider === 'izipay') {
+            return redirect()->route('checkout.izipay', $order);
+        }
 
         return redirect()->route('checkout.success', $order);
     }
@@ -72,11 +93,24 @@ class StorefrontCheckoutController extends Controller
 
     public function quote(Request $request, CheckoutQuoteService $quotes): JsonResponse
     {
-        $data = $request->validate(['district' => ['required', 'string', 'max:100'], 'coupon_code' => ['nullable', 'string', 'max:50']]);
+        $request->mergeIfMissing(['fulfillment_type' => 'delivery']);
+        $data = $request->validate([
+            'fulfillment_type' => ['required', 'in:delivery,pickup'],
+            'pickup_location_id' => ['nullable', 'required_if:fulfillment_type,pickup', 'integer'],
+            'district' => ['nullable', 'required_if:fulfillment_type,delivery', 'string', 'max:100'],
+            'coupon_code' => ['nullable', 'string', 'max:50'],
+        ]);
         $cart = $this->cart($request);
         $items = collect($cart)->map(fn (int $quantity, int $variantId): array => ['variant_id' => $variantId, 'quantity' => $quantity])->values()->all();
 
-        return response()->json($quotes->quote($items, (string) $data['district'], $data['coupon_code'] ?? null, $request->user()));
+        return response()->json($quotes->quote(
+            $items,
+            $data['district'] ?? null,
+            $data['coupon_code'] ?? null,
+            $request->user(),
+            (string) $data['fulfillment_type'],
+            isset($data['pickup_location_id']) ? (int) $data['pickup_location_id'] : null,
+        ));
     }
 
     private function resolveDeliveryRate(string $district): DeliveryRate

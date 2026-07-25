@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Coupon;
 use App\Models\DeliveryRate;
+use App\Models\PickupLocation;
 use App\Models\ProductVariant;
 use App\Models\User;
 use Illuminate\Support\Str;
@@ -15,9 +16,9 @@ class CheckoutQuoteService
 
     /**
      * @param  array<int, array{variant_id: int, quantity: int}>  $items
-     * @return array{subtotal_amount: int, discount_amount: int, delivery_amount: int, total_amount: int, coupon_code: ?string, delivery_rate_id: int}
+     * @return array{subtotal_amount: int, discount_amount: int, delivery_amount: int, total_amount: int, coupon_code: ?string, delivery_rate_id: ?int, pickup_location_id: ?int}
      */
-    public function quote(array $items, string $district, ?string $couponCode = null, ?User $user = null): array
+    public function quote(array $items, ?string $district, ?string $couponCode = null, ?User $user = null, string $fulfillmentType = 'delivery', ?int $pickupLocationId = null): array
     {
         $variants = ProductVariant::with('product')->whereIn('id', collect($items)->pluck('variant_id'))->get()->keyBy('id');
         $subtotal = 0;
@@ -35,10 +36,28 @@ class CheckoutQuoteService
         $normalizedCode = filled($couponCode) ? strtoupper(trim((string) $couponCode)) : null;
         $coupon = $normalizedCode ? Coupon::where('code', $normalizedCode)->first() : null;
         $discount = $this->couponPricing->discount($coupon, $subtotal, $normalizedCode !== null, $user);
-        $rate = $this->resolveRate($district);
-        $delivery = $rate->free_from_amount !== null && $subtotal - $discount >= $rate->free_from_amount ? 0 : $rate->amount;
+        $rate = null;
+        $pickupLocation = null;
+        if ($fulfillmentType === 'pickup') {
+            $pickupLocation = PickupLocation::available()->find($pickupLocationId);
+            if (! $pickupLocation) {
+                throw ValidationException::withMessages(['pickup_location_id' => 'El punto de recojo seleccionado ya no está disponible.']);
+            }
+            $delivery = 0;
+        } else {
+            $rate = $this->resolveRate((string) $district);
+            $delivery = $rate->free_from_amount !== null && $subtotal - $discount >= $rate->free_from_amount ? 0 : $rate->amount;
+        }
 
-        return ['subtotal_amount' => $subtotal, 'discount_amount' => $discount, 'delivery_amount' => $delivery, 'total_amount' => $subtotal - $discount + $delivery, 'coupon_code' => $coupon?->code, 'delivery_rate_id' => $rate->id];
+        return [
+            'subtotal_amount' => $subtotal,
+            'discount_amount' => $discount,
+            'delivery_amount' => $delivery,
+            'total_amount' => $subtotal - $discount + $delivery,
+            'coupon_code' => $coupon?->code,
+            'delivery_rate_id' => $rate?->id,
+            'pickup_location_id' => $pickupLocation?->id,
+        ];
     }
 
     private function resolveRate(string $district): DeliveryRate

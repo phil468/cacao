@@ -21,7 +21,7 @@ class ProductResource extends JsonResource
             'description' => $this->description,
             'is_featured' => $this->is_featured,
             'category' => $this->category?->only(['id', 'name', 'slug']),
-            'images' => $this->images->map->only(['id', 'path', 'alt_text', 'is_primary']),
+            'images' => $this->images->map->only(['id', 'product_variant_id', 'path', 'alt_text', 'is_primary']),
             'variants' => $this->variants->map(fn (ProductVariant $variant): array => [
                 'id' => $variant->id,
                 'name' => $variant->name,
@@ -31,6 +31,10 @@ class ProductResource extends JsonResource
                 'price_amount' => $variant->price_amount,
                 'promotional_price_amount' => $variant->promotional_price_amount,
                 'stock' => $variant->stock,
+                'image' => $this->images
+                    ->where('product_variant_id', $variant->id)
+                    ->sortBy([['is_primary', 'desc'], ['sort_order', 'asc']])
+                    ->first()?->only(['id', 'path', 'alt_text', 'is_primary']),
             ]),
         ];
     }

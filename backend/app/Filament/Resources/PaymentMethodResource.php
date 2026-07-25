@@ -6,9 +6,11 @@ use App\Filament\Resources\PaymentMethodResource\Pages;
 use App\Models\PaymentMethod;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -30,21 +32,26 @@ class PaymentMethodResource extends AdminResource
     {
         return $s->components([
             TextInput::make('code')->label('Código')->required()->unique(ignoreRecord: true),
+            Select::make('provider')->label('Proveedor')->options(['manual' => 'Pago manual', 'izipay' => 'Izipay'])->default('manual')->required()->live(),
             TextInput::make('name')->label('Nombre')->required(),
             Textarea::make('instructions')->label('Instrucciones')->columnSpanFull(),
             FileUpload::make('image_path')->label('Imagen o código QR')->image()->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])->maxSize(4096)->disk('public')->directory('payment-methods')->imageEditor()->helperText('Opcional. JPG, PNG o WebP; máximo 4 MB.'),
-            Toggle::make('requires_proof')->label('Requiere constancia'),
+            Toggle::make('requires_proof')->label('Requiere constancia')->visible(fn (Get $get): bool => $get('provider') === 'manual'),
             Toggle::make('is_active')->label('Activo'),
         ]);
     }
 
     public static function table(Table $t): Table
     {
-        return $t->columns([TextColumn::make('name')->label('Nombre'), TextColumn::make('code')->label('Código'), IconColumn::make('requires_proof')->label('Constancia')->boolean(), IconColumn::make('is_active')->label('Activo')->boolean()])->recordActions([EditAction::make()]);
+        return $t->columns([TextColumn::make('name')->label('Nombre'), TextColumn::make('provider')->label('Proveedor')->badge(), TextColumn::make('code')->label('Código'), IconColumn::make('requires_proof')->label('Constancia')->boolean(), IconColumn::make('is_active')->label('Activo')->boolean()])->recordActions([EditAction::make()]);
     }
 
     public static function getPages(): array
     {
-        return ['index' => Pages\ListPaymentMethods::route('/'), 'edit' => Pages\EditPaymentMethod::route('/{record}/edit')];
+        return [
+            'index' => Pages\ListPaymentMethods::route('/'),
+            'create' => Pages\CreatePaymentMethod::route('/create'),
+            'edit' => Pages\EditPaymentMethod::route('/{record}/edit'),
+        ];
     }
 }

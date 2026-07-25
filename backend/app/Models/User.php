@@ -6,6 +6,7 @@ use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -57,5 +58,11 @@ class User extends Authenticatable implements FilamentUser
     public function pushDevices(): HasMany
     {
         return $this->hasMany(PushDevice::class);
+    }
+
+    /** @return BelongsToMany<ProductVariant, $this> */
+    public function favorites(): BelongsToMany
+    {
+        return $this->belongsToMany(ProductVariant::class, 'favorites')->withTimestamps();
     }
 }

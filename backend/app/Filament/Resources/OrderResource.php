@@ -35,11 +35,14 @@ class OrderResource extends AdminResource
             TextInput::make('customer_name')->label('Cliente')->disabled(),
             TextInput::make('customer_email')->label('Correo')->disabled(),
             TextInput::make('customer_phone')->label('Teléfono')->disabled(),
+            TextInput::make('fulfillment_type')->label('Modalidad')->disabled()
+                ->formatStateUsing(fn (string $state): string => $state === 'pickup' ? 'Recojo en local o feria' : 'Entrega a domicilio'),
             TextInput::make('subtotal_amount')->label('Subtotal')->disabled()->formatStateUsing(fn (int $state): string => 'S/ '.number_format($state / 100, 2)),
             TextInput::make('discount_amount')->label('Descuento')->disabled()->formatStateUsing(fn (int $state): string => 'S/ '.number_format($state / 100, 2)),
             TextInput::make('delivery_amount')->label('Envío')->disabled()->formatStateUsing(fn (int $state): string => 'S/ '.number_format($state / 100, 2)),
             TextInput::make('total_amount')->label('Total')->disabled()->formatStateUsing(fn (int $state): string => 'S/ '.number_format($state / 100, 2)),
             KeyValue::make('delivery_address')->label('Dirección de entrega')->disabled()->dehydrated(false)->columnSpanFull(),
+            KeyValue::make('pickup_location_snapshot')->label('Punto de recojo')->disabled()->dehydrated(false)->columnSpanFull(),
             Repeater::make('items')->relationship()->label('Productos comprados')->schema([
                 TextInput::make('product_name')->label('Producto')->disabled(),
                 TextInput::make('variant_name')->label('Variante')->disabled(),
@@ -59,6 +62,8 @@ class OrderResource extends AdminResource
                 ->dehydrated(false)
                 ->columnSpanFull(),
             Textarea::make('customer_note')->label('Nota del cliente')->disabled()->columnSpanFull(),
+            KeyValue::make('marketing_attribution')->label('Origen de marketing')->disabled()->dehydrated(false)
+                ->helperText('Campaña UTM que originó el pedido, si estuvo disponible.')->columnSpanFull(),
         ]);
     }
 
@@ -70,6 +75,10 @@ class OrderResource extends AdminResource
             TextColumn::make('customer_name')->label('Cliente')->searchable(),
             TextColumn::make('status.name')->label('Estado')->badge(),
             TextColumn::make('paymentMethod.name')->label('Pago'),
+            TextColumn::make('fulfillment_type')->label('Entrega')->badge()
+                ->formatStateUsing(fn (string $state): string => $state === 'pickup' ? 'Recojo' : 'Domicilio'),
+            TextColumn::make('marketing_attribution.utm_source')->label('Origen')->placeholder('Directo'),
+            TextColumn::make('marketing_attribution.utm_campaign')->label('Campaña')->toggleable(isToggledHiddenByDefault: true),
             TextColumn::make('total_amount')->label('Total')->formatStateUsing(fn (int $state): string => 'S/ '.number_format($state / 100, 2))->sortable(),
         ])->defaultSort('created_at', 'desc')->recordActions([EditAction::make()]);
     }

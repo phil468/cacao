@@ -32,7 +32,12 @@ class Order extends Model
 
     protected function casts(): array
     {
-        return ['delivery_address' => 'array', 'whatsapp_consent_at' => 'datetime'];
+        return [
+            'delivery_address' => 'array',
+            'pickup_location_snapshot' => 'array',
+            'marketing_attribution' => 'array',
+            'whatsapp_consent_at' => 'datetime',
+        ];
     }
 
     /** @return HasMany<OrderItem, $this> */
@@ -53,6 +58,12 @@ class Order extends Model
         return $this->belongsTo(PaymentMethod::class);
     }
 
+    /** @return BelongsTo<PickupLocation, $this> */
+    public function pickupLocation(): BelongsTo
+    {
+        return $this->belongsTo(PickupLocation::class);
+    }
+
     /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
@@ -63,6 +74,12 @@ class Order extends Model
     public function statusHistories(): HasMany
     {
         return $this->hasMany(OrderStatusHistory::class);
+    }
+
+    /** @return HasMany<PaymentTransaction, $this> */
+    public function paymentTransactions(): HasMany
+    {
+        return $this->hasMany(PaymentTransaction::class);
     }
 
     /** @return HasMany<OrderReturn, $this> */

@@ -27,4 +27,16 @@ return [
         'credentials' => env('GOOGLE_APPLICATION_CREDENTIALS'),
     ],
     'sms' => ['enabled' => false],
+    'izipay' => [
+        'enabled' => env('IZIPAY_ENABLED', false),
+        'environment' => env('IZIPAY_ENVIRONMENT', 'sandbox'),
+        'merchant_code' => env('IZIPAY_MERCHANT_CODE'),
+        'api_key' => env('IZIPAY_API_KEY'),
+        'api_key_header' => env('IZIPAY_API_KEY_HEADER', 'Authorization'),
+        'api_key_prefix' => env('IZIPAY_API_KEY_PREFIX', 'Bearer'),
+        'hash_key' => env('IZIPAY_HASH_KEY'),
+        'public_key' => env('IZIPAY_PUBLIC_KEY'),
+        'session_token_url' => env('IZIPAY_SESSION_TOKEN_URL'),
+        'postal_code' => env('IZIPAY_POSTAL_CODE', '11001'),
+    ],
 ];

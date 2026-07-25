@@ -13,6 +13,13 @@ class CheckoutQuoteController extends Controller
     {
         $data = $request->validated();
 
-        return response()->json(['data' => $quotes->quote($data['items'], $data['district'], $data['coupon_code'] ?? null, $request->user())]);
+        return response()->json(['data' => $quotes->quote(
+            $data['items'],
+            $data['district'] ?? null,
+            $data['coupon_code'] ?? null,
+            $request->user(),
+            $data['fulfillment_type'],
+            isset($data['pickup_location_id']) ? (int) $data['pickup_location_id'] : null,
+        )]);
     }
 }
