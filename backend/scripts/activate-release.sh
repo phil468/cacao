@@ -8,13 +8,19 @@ trap cleanup EXIT
 mkdir -p "$RELEASE" "$ROOT/shared/storage/app/public" "$ROOT/shared/storage/framework/cache/data" "$ROOT/shared/storage/framework/sessions" "$ROOT/shared/storage/framework/views" "$ROOT/shared/storage/logs" "$ROOT/backups"
 tar -xzf "$ARCHIVE" -C "$RELEASE"
 test -f "$ROOT/shared/.env"
-ln -s "$ROOT/shared/.env" "$RELEASE/.env"; rm -rf "$RELEASE/storage"; ln -s "$ROOT/shared/storage" "$RELEASE/storage"
+# Hostinger can expose a chrooted path over SSH while its web server resolves
+# symlinks from the host filesystem. Relative links work correctly in both
+# contexts and remain valid when a release directory is moved or activated.
+ln -s "../../shared/.env" "$RELEASE/.env"
+rm -rf "$RELEASE/storage"
+ln -s "../../shared/storage" "$RELEASE/storage"
 if command -v composer2 >/dev/null 2>&1; then COMPOSER=composer2; else COMPOSER=composer; fi
 cd "$RELEASE"; "$COMPOSER" install --no-dev --no-interaction --optimize-autoloader
 php artisan db:show >/dev/null; php artisan deploy:backup "$BACKUP"; php artisan migrate --force
-rm -rf "$RELEASE/public/storage"; ln -s "$ROOT/shared/storage/app/public" "$RELEASE/public/storage"
+rm -rf "$RELEASE/public/storage"
+ln -s "../../../shared/storage/app/public" "$RELEASE/public/storage"
 php artisan filament:assets; php artisan optimize
-ln -sfn "$RELEASE" "$ROOT/current"
+ln -sfn "releases/$SHA" "$ROOT/current"
 curl --fail --location --silent --show-error --max-time 30 \
     --retry 3 --retry-delay 2 \
     --header 'Cache-Control: no-cache' \
