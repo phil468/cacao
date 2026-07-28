@@ -30,6 +30,7 @@ class CheckoutRequest extends FormRequest
             'address' => ['required', 'array'],
             'address.recipient_name' => ['required', 'string', 'max:120'],
             'address.phone' => ['required', 'string', 'max:30'],
+            'address.document_number' => ['nullable', 'digits:8'],
             'address.line_one' => ['nullable', 'required_if:fulfillment_type,delivery', 'string', 'max:255'],
             'address.district' => ['nullable', 'required_if:fulfillment_type,delivery', 'string', 'max:100'],
             'address.province' => ['nullable', 'required_if:fulfillment_type,delivery', 'string', 'max:100'],

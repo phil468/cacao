@@ -7,5 +7,9 @@ describe('application routes', () => {
     expect(routes.some(route => route.path === 'catalog')).toBeTrue();
     expect(routes.some(route => route.path === 'login')).toBeTrue();
     expect(routes.some(route => route.path === 'addresses')).toBeTrue();
+    expect(routes.some(route => route.path === 'register')).toBeTrue();
+    expect(routes.some(route => route.path === 'notifications')).toBeTrue();
+    expect(routes.some(route => route.path === 'favorites')).toBeTrue();
+    expect(routes.some(route => route.path === 'profile')).toBeTrue();
   });
 });

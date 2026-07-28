@@ -47,7 +47,10 @@
 <div class="announcement">Desde Ica para el Perú · Cacao peruano seleccionado</div>
 <header class="site-header">
     <a class="brand" href="{{ route('home') }}" aria-label="Cacao del Perú"><img src="{{ asset('images/brand/cacao-del-peru-logo.png') }}" alt="Cacao del Perú"></a>
-    <nav aria-label="Navegación principal">
+    <button class="navigation-toggle" type="button" aria-expanded="false" aria-controls="store-navigation" aria-label="Abrir menú principal" data-navigation-toggle>
+        <span></span><span></span><span></span>
+    </button>
+    <nav id="store-navigation" aria-label="Navegación principal" data-store-navigation>
         <a href="{{ route('catalog') }}">Catálogo</a><a href="{{ route('local.chocolates') }}">Chocolate en Ica</a><a href="{{ route('faq') }}">Preguntas</a><a href="{{ route('contact') }}">Contacto</a>
         @auth
             <div class="account-menu"><button type="button" aria-expanded="false" data-account-toggle>Mi cuenta <span>⌄</span></button><div class="account-dropdown"><a href="{{ route('account.orders.index') }}">Mis pedidos</a><a href="{{ route('account.addresses.index') }}">Direcciones</a><form method="post" action="{{ route('logout') }}">@csrf<button>Salir</button></form></div></div>

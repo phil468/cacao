@@ -15,10 +15,12 @@ import { MobileNavigationComponent } from '../../shared/mobile-navigation.compon
       <ion-item><ion-toggle [(ngModel)]="promotions">Promociones y novedades</ion-toggle></ion-item>
       <p>Las promociones son opcionales y puedes desactivarlas cuando quieras.</p>
       @if (!push.supported) {
-        <p class="form-error">Las notificaciones push se prueban en Android o iOS. El navegador de desarrollo no registra un dispositivo.</p>
+        <p class="form-error">Las notificaciones push se activan desde la aplicación instalada en Android. El navegador sirve para probar el resto de la app.</p>
       }
-      <ion-button expand="block" (click)="enable()" [disabled]="!push.supported || push.status() === 'registering'">Activar notificaciones</ion-button>
-      @if (message()) { <p>{{ message() }}</p> }
+      <ion-button expand="block" (click)="enable()" [disabled]="!push.supported || push.status() === 'registering'">
+        {{ push.status() === 'registering' ? 'Activando…' : 'Activar notificaciones' }}
+      </ion-button>
+      @if (message()) { <p role="status">{{ message() }}</p> }
     </ion-content>
     <app-mobile-navigation />
   `,
@@ -31,6 +33,12 @@ export class NotificationPreferencesPage {
 
   async enable(): Promise<void> {
     await this.push.enable({ orderUpdates: this.orderUpdates, promotions: this.promotions });
-    this.message.set(this.push.status() === 'denied' ? 'Debes permitir las notificaciones desde los ajustes del dispositivo.' : 'Guardando tus preferencias…');
+    const messages = {
+      denied: 'Debes permitir las notificaciones desde los ajustes del dispositivo.',
+      error: 'No pudimos activar las notificaciones. Verifica tu sesión y la configuración de Firebase.',
+      enabled: 'Notificaciones activadas.',
+    } as const;
+    const status = this.push.status();
+    this.message.set(status in messages ? messages[status as keyof typeof messages] : 'Esperando el registro del dispositivo…');
   }
 }

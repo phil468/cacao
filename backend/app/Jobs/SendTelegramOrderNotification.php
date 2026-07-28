@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Models\NotificationDelivery;
 use App\Models\Order;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -22,13 +23,31 @@ class SendTelegramOrderNotification implements ShouldQueue
 
     public function handle(): void
     {
+        if (! config('services.telegram.enabled') || app()->environment('testing')) {
+            return;
+        }
+
         $token = config('services.telegram.bot_token');
         $chatId = config('services.telegram.chat_id');
         if (blank($token) || blank($chatId)) {
             return;
         }
 
-        $order = Order::with('status', 'paymentMethod', 'items')->findOrFail($this->orderId);
+        $order = Order::with('status', 'paymentMethod', 'items')->find($this->orderId);
+        if (! $order) {
+            Log::warning('Telegram order notification skipped because the order no longer exists.', ['order_id' => $this->orderId]);
+
+            return;
+        }
+
+        $delivery = NotificationDelivery::firstOrCreate(
+            ['order_id' => $order->id, 'event' => 'order.created', 'channel' => 'telegram'],
+            ['destination' => (string) $chatId],
+        );
+        if ($delivery->status === 'sent') {
+            return;
+        }
+
         $message = implode("\n", [
             '🍫 <b>Nuevo pedido en Cacao del Perú</b>',
             '<b>Número:</b> '.e($order->number),
@@ -41,7 +60,19 @@ class SendTelegramOrderNotification implements ShouldQueue
             url("/admin/orders/{$order->id}/edit"),
         ]);
 
-        Http::timeout(8)->retry(2, 500)->post("https://api.telegram.org/bot{$token}/sendMessage", ['chat_id' => $chatId, 'text' => $message, 'parse_mode' => 'HTML', 'disable_web_page_preview' => true])->throw();
+        try {
+            $response = Http::timeout(8)->retry(2, 500)->post("https://api.telegram.org/bot{$token}/sendMessage", ['chat_id' => $chatId, 'text' => $message, 'parse_mode' => 'HTML', 'disable_web_page_preview' => true])->throw();
+            $delivery->update([
+                'status' => 'sent',
+                'provider_message_id' => (string) $response->json('result.message_id'),
+                'sent_at' => now(),
+                'error' => null,
+            ]);
+        } catch (Throwable $exception) {
+            $delivery->update(['status' => 'failed', 'error' => str($exception->getMessage())->limit(1000)]);
+
+            throw $exception;
+        }
     }
 
     public function failed(?Throwable $exception): void

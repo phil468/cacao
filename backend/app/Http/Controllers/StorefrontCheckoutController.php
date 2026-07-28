@@ -47,7 +47,7 @@ class StorefrontCheckoutController extends Controller
         $data = $request->validated();
         $proofPath = $request->file('payment_proof')?->store('payment-proofs', 'public');
         $fulfillmentType = (string) $data['fulfillment_type'];
-        $address = array_intersect_key($data, array_flip(['recipient_name', 'phone', 'line_one', 'reference', 'district', 'province', 'department']));
+        $address = array_intersect_key($data, array_flip(['recipient_name', 'phone', 'document_number', 'line_one', 'reference', 'district', 'province', 'department']));
         $deliveryRateId = $fulfillmentType === 'delivery' ? $this->resolveDeliveryRate((string) $data['district'])->id : null;
         $order = $checkout->checkout(
             $user,

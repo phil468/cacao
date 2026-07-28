@@ -110,6 +110,29 @@ if (accountToggle) {
     });
 }
 
+const navigationToggle = document.querySelector('[data-navigation-toggle]');
+const storeNavigation = document.querySelector('[data-store-navigation]');
+if (navigationToggle && storeNavigation) {
+    const closeNavigation = () => {
+        navigationToggle.setAttribute('aria-expanded', 'false');
+        navigationToggle.setAttribute('aria-label', 'Abrir menú principal');
+        storeNavigation.classList.remove('open');
+    };
+    navigationToggle.addEventListener('click', () => {
+        const open = navigationToggle.getAttribute('aria-expanded') === 'true';
+        navigationToggle.setAttribute('aria-expanded', String(!open));
+        navigationToggle.setAttribute('aria-label', open ? 'Abrir menú principal' : 'Cerrar menú principal');
+        storeNavigation.classList.toggle('open', !open);
+    });
+    storeNavigation.querySelectorAll('a').forEach(link => link.addEventListener('click', closeNavigation));
+    document.addEventListener('click', event => {
+        if (!event.target.closest('.site-header')) closeNavigation();
+    });
+    window.matchMedia('(min-width: 901px)').addEventListener('change', event => {
+        if (event.matches) closeNavigation();
+    });
+}
+
 const proofInput = document.querySelector('#payment-proof');
 if (proofInput) {
     const refreshProofRequirement = () => {

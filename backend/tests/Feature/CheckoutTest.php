@@ -31,7 +31,7 @@ function checkoutFixture(int $stock = 3): array
 
 function checkoutPayload(ProductVariant $variant, PaymentMethod $method, DeliveryRate $rate, int $quantity): array
 {
-    return ['items' => [['variant_id' => $variant->id, 'quantity' => $quantity]], 'address' => ['recipient_name' => 'Client', 'phone' => '999', 'line_one' => 'Calle 1', 'district' => 'Lima', 'province' => 'Lima', 'department' => 'Lima'], 'payment_method_id' => $method->id, 'delivery_rate_id' => $rate->id];
+    return ['items' => [['variant_id' => $variant->id, 'quantity' => $quantity]], 'address' => ['recipient_name' => 'Client', 'phone' => '999', 'document_number' => '12345678', 'line_one' => 'Calle 1', 'district' => 'Lima', 'province' => 'Lima', 'department' => 'Lima'], 'payment_method_id' => $method->id, 'delivery_rate_id' => $rate->id];
 }
 
 it('calculates authoritative totals snapshots items and decrements stock', function () {
@@ -39,6 +39,7 @@ it('calculates authoritative totals snapshots items and decrements stock', funct
     $this->postJson('/api/v1/checkout', checkoutPayload($variant, $method, $rate, 2))
         ->assertCreated()->assertJsonPath('data.total_amount', 4000)->assertJsonPath('data.items.0.sku', 'SKU1');
     expect($variant->fresh()->stock)->toBe(1);
+    $this->assertDatabaseHas('orders', ['customer_document_number' => '12345678']);
 });
 
 it('rejects overselling without changing stock', function () {

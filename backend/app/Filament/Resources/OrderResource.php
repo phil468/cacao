@@ -35,6 +35,7 @@ class OrderResource extends AdminResource
             TextInput::make('customer_name')->label('Cliente')->disabled(),
             TextInput::make('customer_email')->label('Correo')->disabled(),
             TextInput::make('customer_phone')->label('Teléfono')->disabled(),
+            TextInput::make('customer_document_number')->label('DNI')->disabled(),
             TextInput::make('fulfillment_type')->label('Modalidad')->disabled()
                 ->formatStateUsing(fn (string $state): string => $state === 'pickup' ? 'Recojo en local o feria' : 'Entrega a domicilio'),
             TextInput::make('subtotal_amount')->label('Subtotal')->disabled()->formatStateUsing(fn (int $state): string => 'S/ '.number_format($state / 100, 2)),

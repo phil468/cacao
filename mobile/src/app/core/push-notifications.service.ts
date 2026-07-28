@@ -13,10 +13,15 @@ export interface PushPreferences {
 export class PushNotificationsService {
   private readonly api = inject(ApiService);
   private readonly router = inject(Router);
-  private preferences: PushPreferences = { orderUpdates: true, promotions: false };
+  private readonly preferencesKey = 'push_preferences';
+  private preferences: PushPreferences = this.readPreferences();
   private listenersReady = false;
   readonly supported = Capacitor.isNativePlatform();
   readonly status = signal<'idle' | 'registering' | 'enabled' | 'denied' | 'error'>('idle');
+
+  async initialize(): Promise<void> {
+    if (this.supported) await this.addListeners();
+  }
 
   async enable(preferences: PushPreferences): Promise<void> {
     if (!this.supported) {
@@ -25,6 +30,7 @@ export class PushNotificationsService {
     }
 
     this.preferences = preferences;
+    localStorage.setItem(this.preferencesKey, JSON.stringify(preferences));
     this.status.set('registering');
     await this.addListeners();
     let permission = await PushNotifications.checkPermissions();
@@ -69,5 +75,13 @@ export class PushNotificationsService {
         void this.router.navigateByUrl(route);
       }
     });
+  }
+
+  private readPreferences(): PushPreferences {
+    try {
+      return JSON.parse(localStorage.getItem(this.preferencesKey) ?? '{"orderUpdates":true,"promotions":false}') as PushPreferences;
+    } catch {
+      return { orderUpdates: true, promotions: false };
+    }
   }
 }

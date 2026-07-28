@@ -1,24 +1,46 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
-import { IonButton, IonButtons, IonFooter, IonToolbar } from '@ionic/angular/standalone';
+import { IonButton, IonFooter, IonToolbar } from '@ionic/angular/standalone';
+import { CartService } from '../core/cart.service';
 
 @Component({
   selector: 'app-mobile-navigation',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive, IonButton, IonButtons, IonFooter, IonToolbar],
+  imports: [RouterLink, RouterLinkActive, IonButton, IonFooter, IonToolbar],
   template: `
-    <ion-footer>
+    <ion-footer class="app-tab-bar">
       <ion-toolbar>
-        <ion-buttons class="mobile-navigation">
-          <ion-button routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Inicio</ion-button>
-          <ion-button routerLink="/catalog" routerLinkActive="active">Catálogo</ion-button>
-          <ion-button routerLink="/cart" routerLinkActive="active">Carrito</ion-button>
-          <ion-button routerLink="/orders" routerLinkActive="active">Pedidos</ion-button>
-          <ion-button routerLink="/addresses" routerLinkActive="active">Direcciones</ion-button>
-          <ion-button routerLink="/notifications" routerLinkActive="active">Avisos</ion-button>
-        </ion-buttons>
+        <nav class="mobile-navigation" aria-label="Navegación principal">
+          <ion-button fill="clear" routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
+            <span class="tab-icon">⌂</span><span>Inicio</span>
+          </ion-button>
+          <ion-button fill="clear" routerLink="/catalog" routerLinkActive="active">
+            <span class="tab-icon">▦</span><span>Catálogo</span>
+          </ion-button>
+          <ion-button fill="clear" routerLink="/favorites" routerLinkActive="active">
+            <span class="tab-icon">♡</span><span>Favoritos</span>
+          </ion-button>
+          <ion-button fill="clear" routerLink="/orders" routerLinkActive="active">
+            <span class="tab-icon">▤</span><span>Pedidos</span>
+          </ion-button>
+          <ion-button fill="clear" routerLink="/profile" routerLinkActive="active">
+            <span class="tab-icon">○</span><span>Mi cuenta</span>
+          </ion-button>
+        </nav>
       </ion-toolbar>
+      @if (cart.items().length) {
+        <a class="cart-dock" routerLink="/cart" aria-label="Abrir carrito">
+          <span>Ver carrito</span>
+          <b>{{ cartQuantity() }} · S/ {{ (cart.total() / 100).toFixed(2) }}</b>
+        </a>
+      }
     </ion-footer>
   `,
 })
-export class MobileNavigationComponent {}
+export class MobileNavigationComponent {
+  readonly cart = inject(CartService);
+
+  cartQuantity(): number {
+    return this.cart.items().reduce((total, item) => total + item.quantity, 0);
+  }
+}

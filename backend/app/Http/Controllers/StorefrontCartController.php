@@ -14,7 +14,7 @@ class StorefrontCartController extends Controller
     public function index(Request $request): View
     {
         $cart = $this->cart($request);
-        $variants = ProductVariant::with(['product.images'])->whereIn('id', array_keys($cart))->get()->keyBy('id');
+        $variants = ProductVariant::with(['images', 'product.images'])->whereIn('id', array_keys($cart))->get()->keyBy('id');
         $items = collect($cart)->map(function (int $quantity, int $variantId) use ($variants): ?array {
             $variant = $variants->get($variantId);
 

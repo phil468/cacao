@@ -16,6 +16,7 @@ use Illuminate\Support\Carbon;
  * @property string $customer_name
  * @property string $customer_email
  * @property string $customer_phone
+ * @property string|null $customer_document_number
  * @property int $subtotal_amount
  * @property int $discount_amount
  * @property int $delivery_amount

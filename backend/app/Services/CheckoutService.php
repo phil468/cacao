@@ -55,6 +55,8 @@ class CheckoutService
 
             $coupon = $couponCode ? Coupon::where('code', strtoupper($couponCode))->lockForUpdate()->first() : null;
             $discount = $this->couponPricing->discount($coupon, $subtotal, filled($couponCode), $user);
+            $customerDocumentNumber = $address['document_number'] ?? null;
+            unset($address['document_number']);
             $pickupLocation = null;
             if ($fulfillmentType === 'pickup') {
                 $pickupLocation = PickupLocation::available()->lockForUpdate()->find($pickupLocationId);
@@ -78,7 +80,9 @@ class CheckoutService
             $order = Order::create([
                 'number' => (string) Str::uuid(), 'user_id' => $user->id, 'order_status_id' => $status->id,
                 'payment_method_id' => $method->id, 'customer_name' => $user->name, 'customer_email' => $user->email,
-                'customer_phone' => $user->phone ?? $address['phone'], 'delivery_address' => $address,
+                'customer_phone' => $user->phone ?? $address['phone'],
+                'customer_document_number' => $customerDocumentNumber,
+                'delivery_address' => $address,
                 'billing_document_type' => $billingDocumentType,
                 'billing_document_number' => $billingDocumentNumber,
                 'fulfillment_type' => $fulfillmentType,
@@ -113,7 +117,7 @@ class CheckoutService
 
             $order->statusHistories()->create(['order_status_id' => $status->id, 'actor_id' => $user->id, 'note' => 'Pedido creado']);
             $this->payments->createPayment($order, $method, $proofPath);
-            if (filled(config('services.telegram.bot_token')) && filled(config('services.telegram.chat_id'))) {
+            if (config('services.telegram.enabled') && ! app()->environment('testing') && filled(config('services.telegram.bot_token')) && filled(config('services.telegram.chat_id'))) {
                 SendTelegramOrderNotification::dispatch($order->id)->afterCommit();
             }
             SendOrderCustomerNotifications::dispatch($order->id, 'order.created')->afterCommit();

@@ -36,6 +36,7 @@
 
                 <label>Destinatario<input name="recipient_name" value="{{ old('recipient_name', $defaultAddress?->recipient_name ?? $user->name) }}" required></label>
                 <label>Teléfono<input name="phone" value="{{ old('phone', $defaultAddress?->phone ?? $user->phone) }}" required></label>
+                <label>DNI <span aria-hidden="true">*</span><input name="document_number" value="{{ old('document_number') }}" inputmode="numeric" autocomplete="off" minlength="8" maxlength="8" pattern="[0-9]{8}" required aria-describedby="document-number-help"><small id="document-number-help">Ingresa los 8 dígitos del DNI de quien recibirá o recogerá el pedido.</small></label>
 
                 <div data-delivery-fields>
                     @if($defaultAddress)

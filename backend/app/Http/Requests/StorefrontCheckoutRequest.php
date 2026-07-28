@@ -25,7 +25,9 @@ class StorefrontCheckoutRequest extends FormRequest
         return [
             'fulfillment_type' => ['required', Rule::in(['delivery', 'pickup'])],
             'pickup_location_id' => ['nullable', 'required_if:fulfillment_type,pickup', 'integer', 'exists:pickup_locations,id'],
-            'recipient_name' => ['required', 'string', 'max:120'], 'phone' => ['required', 'string', 'max:30'],
+            'recipient_name' => ['required', 'string', 'max:120'],
+            'phone' => ['required', 'string', 'max:30'],
+            'document_number' => ['required', 'digits:8'],
             'line_one' => ['nullable', 'required_if:fulfillment_type,delivery', 'string', 'max:255'], 'reference' => ['nullable', 'string', 'max:500'],
             'district' => ['nullable', 'required_if:fulfillment_type,delivery', Rule::in(IcaDistricts::all())],
             'province' => ['nullable', 'required_if:fulfillment_type,delivery', 'string', 'max:100'],
@@ -44,6 +46,8 @@ class StorefrontCheckoutRequest extends FormRequest
     {
         return [
             'pickup_location_id.required_if' => 'Selecciona el local o feria donde recogerás tu pedido.',
+            'document_number.required' => 'Ingresa el DNI de la persona que recibirá o recogerá el pedido.',
+            'document_number.digits' => 'El DNI debe tener exactamente 8 dígitos.',
             'billing_document_type.required' => 'Selecciona el tipo de documento para pagar con Izipay.',
             'billing_document_number.required' => 'Ingresa tu documento para pagar con Izipay.',
             'district.required_if' => 'Selecciona el distrito de entrega.',
