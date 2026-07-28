@@ -2,17 +2,19 @@
 @section('content')
 <section class="banner-carousel" data-banner-carousel data-interval="{{ $carouselIntervalSeconds * 1000 }}" aria-label="Novedades de Cacao del Perú">
     <div class="banner-track">
-        <article class="banner-slide default-banner" data-banner-slide>
-            <img src="{{ asset('images/brand/cacao-botanical-hero.jpg') }}" alt="Ilustraciones botánicas de mazorcas de cacao" fetchpriority="high">
-            <div class="default-banner-copy">
-                <span class="eyebrow">CACAO PERUANO · EDICIÓN SELECTA</span>
-                <h1>El lujo también tiene origen.</h1>
-                <p>Chocolate de carácter profundo, detalles impecables y sabores que celebran la riqueza del Perú.</p>
-                <a class="button" href="{{ route('catalog') }}">Ir al Catálogo</a>
-            </div>
-        </article>
+        @if($banners->isEmpty())
+            <article class="banner-slide default-banner" data-banner-slide>
+                <img src="{{ asset('images/brand/cacao-botanical-hero.jpg') }}" alt="Ilustraciones botánicas de mazorcas de cacao" fetchpriority="high">
+                <div class="default-banner-copy">
+                    <span class="eyebrow">CACAO PERUANO · EDICIÓN SELECTA</span>
+                    <h1>El lujo también tiene origen.</h1>
+                    <p>Chocolate de carácter profundo, detalles impecables y sabores que celebran la riqueza del Perú.</p>
+                    <a class="button" href="{{ route('catalog') }}">Ir al Catálogo</a>
+                </div>
+            </article>
+        @endif
         @foreach($banners as $banner)
-            <article class="banner-slide managed-banner" data-banner-slide hidden>
+            <article class="banner-slide managed-banner" data-banner-slide @if(!$loop->first) hidden @endif>
                 @if($banner->button_url)<a href="{{ $banner->button_url }}" aria-label="{{ $banner->button_label ?: $banner->title }}">@endif
                     <img src="{{ asset('storage/'.$banner->image_path) }}" alt="{{ $banner->title }}" loading="lazy">
                 @if($banner->button_url)</a>@endif
@@ -26,12 +28,11 @@
             </article>
         @endforeach
     </div>
-    @if($banners->isNotEmpty())
+    @if($banners->count() > 1)
         <button class="banner-control previous" type="button" data-banner-previous aria-label="Banner anterior"><span>‹</span></button>
         <button class="banner-control next" type="button" data-banner-next aria-label="Banner siguiente"><span>›</span></button>
         <div class="banner-dots" aria-label="Seleccionar banner">
-            <button type="button" data-banner-dot="0" class="active" aria-label="Mostrar portada principal"></button>
-            @foreach($banners as $banner)<button type="button" data-banner-dot="{{ $loop->iteration }}" aria-label="Mostrar banner {{ $loop->iteration + 1 }}"></button>@endforeach
+            @foreach($banners as $banner)<button type="button" data-banner-dot="{{ $loop->index }}" @class(['active' => $loop->first]) aria-label="Mostrar banner {{ $loop->iteration }}"></button>@endforeach
         </div>
     @endif
 </section>
