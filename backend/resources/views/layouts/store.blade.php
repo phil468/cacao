@@ -3,8 +3,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ $title ?? 'Cacao del Perú — Chocolates en Ica' }}</title>
-    <meta name="description" content="{{ $description ?? 'Chocolates y productos derivados del cacao con entrega en Ica, Perú.' }}">
+    <title>{{ $title ?? 'Chocolates peruanos en Ica | Cacao del Perú' }}</title>
+    <meta name="description" content="{{ $description ?? 'Compra chocolates peruanos, grageas, cacao y café en Ica. Elige sabores y porcentajes de cacao, con delivery o recojo y pago por Yape.' }}">
     <meta name="robots" content="{{ $robots ?? 'index,follow,max-image-preview:large' }}">
     <link rel="canonical" href="{{ $canonical ?? url()->current() }}">
     <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/brand/favicon/favicon-32.png') }}">
@@ -14,13 +14,14 @@
     <meta property="og:locale" content="es_PE">
     <meta property="og:type" content="{{ $ogType ?? 'website' }}">
     <meta property="og:site_name" content="Cacao del Perú">
-    <meta property="og:title" content="{{ $title ?? 'Cacao del Perú' }}">
-    <meta property="og:description" content="{{ $description ?? 'Chocolates y productos derivados del cacao con entrega en Ica, Perú.' }}">
+    <meta property="og:title" content="{{ $title ?? 'Chocolates peruanos en Ica | Cacao del Perú' }}">
+    <meta property="og:description" content="{{ $description ?? 'Compra chocolates peruanos, grageas, cacao y café en Ica. Elige sabores y porcentajes de cacao, con delivery o recojo y pago por Yape.' }}">
     <meta property="og:url" content="{{ $canonical ?? url()->current() }}">
     <meta property="og:image" content="{{ $ogImage ?? asset('images/brand/cacao-botanical-hero.jpg') }}">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="theme-color" content="#24140f">
-    @php($storeSchema = [
+    <?php
+    $storeSchema = [
         '@context' => 'https://schema.org',
         '@type' => 'OnlineStore',
         '@id' => url('/').'#store',
@@ -37,8 +38,26 @@
             'addressCountry' => 'PE',
         ],
         'currenciesAccepted' => 'PEN',
-    ])
+    ];
+    ?>
     <script type="application/ld+json">{!! json_encode($storeSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+    <?php
+    $websiteSchema = [
+        '@context' => 'https://schema.org',
+        '@type' => 'WebSite',
+        '@id' => url('/').'#website',
+        'url' => url('/'),
+        'name' => 'Cacao del Perú',
+        'inLanguage' => 'es-PE',
+        'publisher' => ['@id' => url('/').'#store'],
+        'potentialAction' => [
+            '@type' => 'SearchAction',
+            'target' => route('catalog').'?q={search_term_string}',
+            'query-input' => 'required name=search_term_string',
+        ],
+    ];
+    ?>
+    <script type="application/ld+json">{!! json_encode($websiteSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
     @stack('structured-data')
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @yield('head')

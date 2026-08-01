@@ -35,7 +35,7 @@ it('publishes local SEO routes and product variant structured data', function ()
         ->assertSee('"sku":"CH70-CAFE"', false)
         ->assertSee('"priceCurrency":"PEN"', false);
 
-    $this->get('/sitemap.xml')->assertOk()->assertSee('/chocolates-en-ica', false);
+    $this->get('/sitemap.xml')->assertOk()->assertSee('/chocolates-en-ica', false)->assertSee('<lastmod>', false);
     $this->get('/robots.txt')->assertOk()->assertSee('Disallow: /checkout');
 });
 
@@ -48,4 +48,23 @@ it('captures UTM attribution in the session', function () {
         'utm_campaign' => 'ica_launch',
         'landing_path' => '/',
     ]);
+});
+
+it('publishes commercial metadata and keeps filtered catalog pages out of the index', function () {
+    $this->get('/')
+        ->assertOk()
+        ->assertSee('<title>Chocolates peruanos en Ica | Cacao del Perú</title>', false)
+        ->assertSee('<h1>Chocolate, grageas y cacao para regalar o disfrutar</h1>', false)
+        ->assertSee('"@type":"WebSite"', false);
+
+    $this->get('/catalogo')
+        ->assertOk()
+        ->assertSee('<meta name="robots" content="index,follow,max-image-preview:large">', false)
+        ->assertSee('<link rel="canonical" href="'.route('catalog').'">', false);
+
+    $this->get('/catalogo?q=chocolate')
+        ->assertOk()
+        ->assertSee('<meta name="robots" content="noindex,follow,max-image-preview:large">', false)
+        ->assertSee('<link rel="canonical" href="'.route('catalog').'">', false);
+
 });

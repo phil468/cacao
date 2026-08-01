@@ -40,6 +40,14 @@ class CatalogController extends Controller
             'variants' => $variants,
             'categories' => Category::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(),
             'selectedCategory' => $categorySlug,
+            'seoTitle' => $category
+                ? $category->name.' en Ica | Cacao del Perú'
+                : 'Catálogo de chocolates peruanos | Cacao del Perú',
+            'seoDescription' => $category
+                ? 'Compra '.$category->name.' en Ica. Revisa sabores, presentaciones, precios y stock disponible para delivery o recojo.'
+                : 'Explora chocolates peruanos, grageas, cacao y café disponibles en Ica. Compara sabores, porcentajes, precios y stock.',
+            'seoCanonical' => $category ? route('category', $category) : route('catalog'),
+            'seoRobots' => $request->query() === [] ? 'index,follow,max-image-preview:large' : 'noindex,follow,max-image-preview:large',
         ]);
     }
 }

@@ -1,4 +1,9 @@
-@extends('layouts.store', ['title' => 'Catálogo | Cacao del Perú'])
+@extends('layouts.store', [
+    'title' => $seoTitle,
+    'description' => $seoDescription,
+    'canonical' => $seoCanonical,
+    'robots' => $seoRobots,
+])
 
 @section('content')
 <section>

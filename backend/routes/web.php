@@ -16,6 +16,7 @@ use App\Models\Category;
 use App\Models\Faq;
 use App\Models\Order;
 use App\Models\Product;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => view('home', [
@@ -25,9 +26,18 @@ Route::get('/', fn () => view('home', [
 ]))->name('home');
 Route::get('/robots.txt', fn () => response("User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api\nDisallow: /carrito\nDisallow: /checkout\nDisallow: /ingresar\nDisallow: /registro\nDisallow: /mi-cuenta\nSitemap: ".url('/sitemap.xml')."\n", 200, ['Content-Type' => 'text/plain']));
 Route::get('/sitemap.xml', function () {
+    $productModifiedAt = Product::where('is_active', true)->max('updated_at');
+    $staticModifiedAt = $productModifiedAt ? Carbon::parse($productModifiedAt)->toAtomString() : null;
     $urls = collect([route('home'), route('catalog'), route('local.chocolates'), route('faq'), route('contact')])
-        ->merge(Product::where('is_active', true)->pluck('slug')->map(fn (string $slug): string => route('product', $slug)))
-        ->merge(Category::where('is_active', true)->pluck('slug')->map(fn (string $slug): string => route('category', $slug)));
+        ->map(fn (string $location): array => ['location' => $location, 'last_modified' => $staticModifiedAt])
+        ->merge(Product::where('is_active', true)->get(['slug', 'updated_at'])->map(fn (Product $product): array => [
+            'location' => route('product', $product),
+            'last_modified' => $product->updated_at?->toAtomString(),
+        ]))
+        ->merge(Category::where('is_active', true)->get(['slug', 'updated_at'])->map(fn (Category $category): array => [
+            'location' => route('category', $category),
+            'last_modified' => $category->updated_at?->toAtomString(),
+        ]));
 
     return response(view('sitemap', ['urls' => $urls])->render(), 200, ['Content-Type' => 'application/xml']);
 })->name('sitemap');

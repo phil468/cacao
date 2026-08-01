@@ -1,4 +1,8 @@
-@extends('layouts.store')
+@extends('layouts.store', [
+    'title' => 'Chocolates peruanos en Ica | Cacao del Perú',
+    'description' => 'Compra chocolates peruanos, grageas, cacao y café en Ica. Elige sabores y porcentajes de cacao, con delivery o recojo y pago por Yape.',
+    'canonical' => route('home'),
+])
 @section('content')
 <section class="banner-carousel" data-banner-carousel data-interval="{{ $carouselIntervalSeconds * 1000 }}" aria-label="Novedades de Cacao del Perú">
     <div class="banner-track">
@@ -7,7 +11,7 @@
                 <img src="{{ asset('images/brand/cacao-botanical-hero.jpg') }}" alt="Ilustraciones botánicas de mazorcas de cacao" fetchpriority="high">
                 <div class="default-banner-copy">
                     <span class="eyebrow">CACAO PERUANO · EDICIÓN SELECTA</span>
-                    <h1>El lujo también tiene origen.</h1>
+                    <h2>El lujo también tiene origen.</h2>
                     <p>Chocolate de carácter profundo, detalles impecables y sabores que celebran la riqueza del Perú.</p>
                     <a class="button" href="{{ route('catalog') }}">Ir al Catálogo</a>
                 </div>
@@ -37,7 +41,7 @@
     @endif
 </section>
 <section class="collection">
-    <div class="section-heading"><span class="eyebrow">NUESTROS FAVORITOS</span><h2>Una selección para recordar</h2><p>Texturas, frutos y cacao cuidadosamente combinados.</p></div>
+    <div class="section-heading"><span class="eyebrow">CHOCOLATES PERUANOS EN ICA</span><h1>Chocolate, grageas y cacao para regalar o disfrutar</h1><p>Compra sabores seleccionados con stock actualizado, entrega a domicilio en Ica o recojo en nuestros puntos disponibles.</p></div>
     <div class="grid">@foreach($featured as $product) @php($image = $product->images->firstWhere('is_primary', true))<article class="card"><a href="{{ route('product',$product) }}"><div class="card-media{{ $image ? ' has-hover-image' : '' }}"><div class="image"><span>{{ $product->category?->name ?? 'Cacao del Perú' }}</span><b>{{ $product->name }}</b></div>@if($image)<img class="product-card-image hover-product-image" src="{{ asset('storage/'.$image->path) }}" alt="{{ $image->alt_text ?: $product->name }}" loading="lazy">@endif</div></a><div class="card-body"><small>{{ $product->variants->first()?->cacao_percentage ? $product->variants->first()->cacao_percentage.'% cacao' : 'Selección peruana' }}</small><h3><a href="{{ route('product',$product) }}">{{ $product->name }}</a></h3><p>{{ $product->short_description }}</p><strong>S/ {{ number_format(($product->variants->first()?->currentPriceAmount() ?? 0)/100,2) }}</strong></div></article>@endforeach</div>
 </section>
 <section class="catalog-invitation"><span class="eyebrow">TODAS LAS PRESENTACIONES</span><h2>Encuentra tu próximo favorito</h2><p>Explora chocolates, grageas, cacao y café disponibles desde Ica.</p><a class="button" href="{{ route('catalog') }}">Ver todos los productos</a></section>
