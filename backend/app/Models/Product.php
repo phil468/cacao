@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
@@ -17,6 +18,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $description
  * @property bool $is_active
  * @property bool $is_featured
+ * @property Carbon|null $updated_at
  * @property-read Category|null $category
  * @property-read Collection<int, ProductVariant> $variants
  * @property-read Collection<int, ProductImage> $images
