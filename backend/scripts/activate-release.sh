@@ -30,22 +30,18 @@ curl --fail --location --silent --show-error --max-time 30 \
     --header 'Cache-Control: no-cache' \
     "$APP_URL/up?release=$SHA" >/dev/null
 trap - ERR
-mapfile -t RELEASES_TO_DELETE < <(
-    find "$ROOT/releases" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' \
-        | sort -nr \
-        | tail -n +6 \
-        | cut -d' ' -f2-
-)
-if ((${#RELEASES_TO_DELETE[@]})); then
-    rm -rf -- "${RELEASES_TO_DELETE[@]}"
-fi
+find "$ROOT/releases" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' \
+    | sort -nr \
+    | tail -n +6 \
+    | cut -d' ' -f2- \
+    | while IFS= read -r release_path; do
+        [ -n "$release_path" ] && rm -rf -- "$release_path"
+    done
 
-mapfile -t BACKUPS_TO_DELETE < <(
-    find "$ROOT/backups" -mindepth 1 -maxdepth 1 -type f -name 'database-*.sql' -printf '%T@ %p\n' \
-        | sort -nr \
-        | tail -n +11 \
-        | cut -d' ' -f2-
-)
-if ((${#BACKUPS_TO_DELETE[@]})); then
-    rm -f -- "${BACKUPS_TO_DELETE[@]}"
-fi
+find "$ROOT/backups" -mindepth 1 -maxdepth 1 -type f -name 'database-*.sql' -printf '%T@ %p\n' \
+    | sort -nr \
+    | tail -n +11 \
+    | cut -d' ' -f2- \
+    | while IFS= read -r backup_path; do
+        [ -n "$backup_path" ] && rm -f -- "$backup_path"
+    done
