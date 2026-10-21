@@ -22,10 +22,10 @@ jobs:
           php artisan key:generate
           vendor/bin/pint --test
           vendor/bin/phpstan analyse --memory-limit=1G
-          php artisan test
           npm ci --no-audit --no-fund
           npm run typecheck:pos
           npm run build
+          php artisan test
           composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader
       - name: Package without local databases or environment files
         run: tar --exclude='.env*' --exclude='*.sqlite*' --exclude='node_modules' --exclude='storage' --exclude='bootstrap/cache/*.php' -czf backend.tar.gz -C backend .
