@@ -1,0 +1,56 @@
+name: Deploy test
+on:
+  workflow_dispatch:
+concurrency: {group: staging-test, cancel-in-progress: false}
+permissions:
+  contents: read
+jobs:
+  deploy:
+    environment: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with: {php-version: '8.2', coverage: none, extensions: 'gd, pdo_sqlite'}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Test backend
+        working-directory: backend
+        run: |
+          composer install --prefer-dist --no-interaction
+          cp .env.example .env
+          php artisan key:generate
+          vendor/bin/pint --test
+          vendor/bin/phpstan analyse --memory-limit=1G
+          php artisan test
+          npm ci --no-audit --no-fund
+          npm run typecheck:pos
+          npm run build
+          composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader
+      - name: Package without local databases or environment files
+        run: tar --exclude='.env*' --exclude='*.sqlite*' --exclude='node_modules' --exclude='storage' --exclude='bootstrap/cache/*.php' -czf backend.tar.gz -C backend .
+      - uses: webfactory/ssh-agent@v0.9.0
+        with: {ssh-private-key: '${{ secrets.TEST_HOSTINGER_SSH_KEY }}'}
+      - name: Upload and activate isolated test release
+        env:
+          HOST: '${{ secrets.TEST_HOSTINGER_HOST }}'
+          PORT: '${{ secrets.TEST_HOSTINGER_PORT }}'
+          SSH_USER: '${{ secrets.TEST_HOSTINGER_USER }}'
+          KNOWN_HOSTS: '${{ secrets.TEST_HOSTINGER_KNOWN_HOSTS }}'
+          DEPLOY_ROOT: '${{ secrets.TEST_HOSTINGER_DEPLOY_PATH }}'
+          PUBLIC_ROOT: '${{ secrets.TEST_HOSTINGER_PUBLIC_PATH }}'
+          RELEASE_ID: '${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}'
+        run: |
+          set -euo pipefail
+          [[ "$HOST" =~ ^[a-zA-Z0-9.-]+$ && "$PORT" =~ ^[0-9]+$ && "$SSH_USER" =~ ^[a-zA-Z0-9_-]+$ ]]
+          [[ "$DEPLOY_ROOT" =~ ^/home/[a-zA-Z0-9_./-]+/cacao-test-app$ ]]
+          [[ "$PUBLIC_ROOT" == /home/u387243142/domains/cacaodelperu.com/public_html/test ]]
+          [[ "$DEPLOY_ROOT" == /home/u387243142/domains/cacaodelperu.com/cacao-test-app ]]
+          test -n "$KNOWN_HOSTS"
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          ssh -p "$PORT" -o StrictHostKeyChecking=yes "$SSH_USER@$HOST" "mkdir -p '$DEPLOY_ROOT/incoming' '$DEPLOY_ROOT/scripts'"
+          scp -P "$PORT" backend.tar.gz "$SSH_USER@$HOST:$DEPLOY_ROOT/incoming/$RELEASE_ID.tar.gz"
+          scp -P "$PORT" backend/scripts/activate-test-release.sh "$SSH_USER@$HOST:$DEPLOY_ROOT/scripts/activate-test-release.sh"
+          ssh -p "$PORT" -o StrictHostKeyChecking=yes "$SSH_USER@$HOST" "bash '$DEPLOY_ROOT/scripts/activate-test-release.sh' '$RELEASE_ID' '$DEPLOY_ROOT/incoming/$RELEASE_ID.tar.gz' '$PUBLIC_ROOT'"
