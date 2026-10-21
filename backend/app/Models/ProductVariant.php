@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $product_id
  * @property string $name
  * @property string $sku
+ * @property string|null $barcode
  * @property int|null $cacao_percentage
  * @property int $weight_grams
  * @property int $price_amount

@@ -31,13 +31,14 @@ class PaymentMethodResource extends AdminResource
     public static function form(Schema $s): Schema
     {
         return $s->components([
-            TextInput::make('code')->label('Código')->required()->unique(ignoreRecord: true),
-            Select::make('provider')->label('Proveedor')->options(['manual' => 'Pago manual', 'izipay' => 'Izipay'])->default('manual')->required()->live(),
+            TextInput::make('code')->label('Código')->required()->unique(ignoreRecord: true)->disabledOn('edit')->helperText('La identidad se conserva para el historial de pagos y cierres. Para otro código, crea un método nuevo.'),
+            Select::make('provider')->label('Proveedor')->options(['manual' => 'Pago manual', 'izipay' => 'Izipay'])->default('manual')->required()->live()->disabledOn('edit'),
             TextInput::make('name')->label('Nombre')->required(),
             Textarea::make('instructions')->label('Instrucciones')->columnSpanFull(),
             FileUpload::make('image_path')->label('Imagen o código QR')->image()->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])->maxSize(4096)->disk('public')->directory('payment-methods')->imageEditor()->helperText('Opcional. JPG, PNG o WebP; máximo 4 MB.'),
             Toggle::make('requires_proof')->label('Requiere constancia')->visible(fn (Get $get): bool => $get('provider') === 'manual'),
             Toggle::make('is_active')->label('Activo'),
+            Toggle::make('is_available_online')->label('Disponible en web y aplicación')->default(true),
         ]);
     }
 

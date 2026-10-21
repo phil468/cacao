@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Jobs\SendOrderCustomerNotifications;
 use App\Models\Coupon;
-use App\Models\InventoryMovement;
+use App\Models\InventoryLocation;
 use App\Models\Order;
 use App\Models\OrderStatus;
 use App\Models\ProductVariant;
@@ -56,6 +56,9 @@ class OrderStatusService
 
     private function restoreInventory(Order $order, ?User $actor): void
     {
+        if ($order->is_historical) {
+            return;
+        }
         foreach ($order->items as $item) {
             if ($item->product_variant_id === null) {
                 continue;
@@ -66,15 +69,12 @@ class OrderStatusService
                 continue;
             }
 
-            $variant->increment('stock', $item->quantity);
-            $variant->refresh();
-            InventoryMovement::create([
-                'product_variant_id' => $variant->id,
+            $inventory = app(LocationInventoryService::class);
+            $location = $order->inventory_location_id ? InventoryLocation::findOrFail($order->inventory_location_id) : $inventory->central();
+            $inventory->change($variant, $location, $item->quantity, [
                 'order_id' => $order->id,
                 'actor_id' => $actor?->id,
                 'type' => 'order_cancellation',
-                'quantity_delta' => $item->quantity,
-                'balance_after' => $variant->stock,
                 'reason' => 'Cancellation of order '.$order->number,
             ]);
         }

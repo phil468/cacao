@@ -9,7 +9,9 @@ use App\Models\OrderStatus;
 use App\Models\PaymentMethod;
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -17,7 +19,10 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        $permissions = collect(['catalog.view', 'catalog.manage', 'inventory.manage', 'orders.view', 'orders.manage', 'customers.manage', 'content.manage', 'settings.manage', 'roles.manage'])->map(fn ($p) => Permission::firstOrCreate(['name' => $p, 'guard_name' => 'web']));
+        if (Schema::hasTable('inventory_transfers') && DB::table('inventory_transfers')->exists()) {
+            throw new \RuntimeException('Full master seeding is disabled after location transfers. Use individual idempotent feature seeders; do not reset distributed inventory.');
+        }
+        $permissions = collect(['catalog.view', 'catalog.manage', 'inventory.manage', 'orders.view', 'orders.manage', 'customers.manage', 'content.manage', 'settings.manage', 'roles.manage', 'promotions.view', 'promotions.manage'])->map(fn ($p) => Permission::firstOrCreate(['name' => $p, 'guard_name' => 'web']));
         $admin = Role::firstOrCreate(['name' => 'administrator', 'guard_name' => 'web']);
         $admin->syncPermissions($permissions);
         Role::firstOrCreate(['name' => 'customer', 'guard_name' => 'web']);
@@ -37,5 +42,8 @@ class DatabaseSeeder extends Seeder
         $icaZone = DeliveryZone::updateOrCreate(['name' => 'Provincia de Ica'], ['districts' => ['Ica', 'La Tinguiña', 'Los Aquijes', 'Ocucaje', 'Pachacútec', 'Parcona', 'Pueblo Nuevo', 'Salas', 'San José de los Molinos', 'San Juan Bautista', 'Santiago', 'Subtanjalla', 'Tate', 'Yauca del Rosario'], 'is_active' => true]);
         DeliveryRate::firstOrCreate(['delivery_zone_id' => $icaZone->id], ['amount' => 0, 'free_from_amount' => null, 'is_active' => false]);
         $this->call(CurrentInventorySeeder::class);
+        $this->call(PromotionSeeder::class);
+        $this->call(PointOfSaleSeeder::class);
+        $this->call(PosAccessSeeder::class);
     }
 }

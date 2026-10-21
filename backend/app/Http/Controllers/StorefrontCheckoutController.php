@@ -27,7 +27,7 @@ class StorefrontCheckoutController extends Controller
         }
 
         return view('checkout', [
-            'paymentMethods' => PaymentMethod::where('is_active', true)->get(),
+            'paymentMethods' => PaymentMethod::where('is_active', true)->where('is_available_online', true)->get(),
             'deliveryRates' => DeliveryRate::where('is_active', true)->with('deliveryZone')->get(),
             'user' => $request->user(),
             'defaultAddress' => $request->user()->addresses()->where('is_default', true)->first() ?? $request->user()->addresses()->latest()->first(),

@@ -1,0 +1,1 @@
+<div class="overflow-auto"><table class="w-full text-sm"><thead><tr><th>Producto</th><th>SKU</th><th>Stock en esta ubicación</th></tr></thead><tbody>@foreach($rows as $row)<tr><td class="p-2">{{ $row['name'] }}</td><td class="p-2">{{ $row['sku'] }}</td><td class="p-2">{{ $row['stock'] }}</td></tr>@endforeach</tbody></table></div>

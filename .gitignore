@@ -1,7 +1,10 @@
 /.tools/
 /.env
+/.env.mysql.local
 
 /backend/.env
+/backend/storage/app/local-backups/
+/backend/database/database.sqlite
 /backend/vendor/
 /backend/node_modules/
 /backend/public/build/
@@ -11,6 +14,7 @@
 /backend/storage/framework/cache/*
 /backend/storage/framework/sessions/*
 /backend/storage/framework/views/*
+/backend/storage/framework/testing/
 /backend/storage/logs/*
 /backend/storage/app/firebase/*.json
 /backend/.phpunit.cache

@@ -23,7 +23,7 @@ class EditAdminUser extends EditRecord
 
     protected function afterSave(): void
     {
-        if ($this->record instanceof User && ! $this->record->hasRole('administrator')) {
+        if ($this->record instanceof User && auth()->id() === $this->record->id && ! $this->record->hasRole('administrator')) {
             $this->record->assignRole('administrator');
         }
     }

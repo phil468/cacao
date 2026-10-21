@@ -12,6 +12,7 @@ use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Schemas\Components\Utilities\Get;
@@ -62,9 +63,10 @@ class EditOrder extends EditRecord
                         ->deletable(false)
                         ->reorderable(false),
                     Textarea::make('reason')->label('Motivo')->required()->maxLength(1000),
+                    Toggle::make('damaged')->label('Producto fallado: devolver a cuarentena, no al stock vendible'),
                 ])
-                ->modalHeading('Registrar devolución y reponer stock')
-                ->modalDescription('Puedes devolver parcialmente uno o varios productos. Esta operación aumenta el stock y no se puede deshacer.')
+                ->modalHeading('Registrar devolución')
+                ->modalDescription('Las unidades normales vuelven al stock; las falladas van a cuarentena. Las ventas históricas nunca reponen stock. El reembolso de dinero se registra por separado en caja.')
                 ->action(fn (array $data) => $this->registerReturn($data)),
         ];
     }
@@ -79,13 +81,13 @@ class EditOrder extends EditRecord
             }
         }
 
-        $return = app(OrderReturnService::class)->process($this->order(), $quantities, (string) $data['reason'], Auth::user());
+        $return = app(OrderReturnService::class)->process($this->order(), $quantities, (string) $data['reason'], Auth::user(), (bool) ($data['damaged'] ?? false));
         $this->order()->refresh();
         $this->fillForm();
 
         Notification::make()
             ->title('Devolución registrada')
-            ->body('Se repuso el stock. Código: '.$return->number)
+            ->body('Destino de inventario: '.$return->getAttribute('inventory_disposition').'. Código: '.$return->number)
             ->success()
             ->send();
     }

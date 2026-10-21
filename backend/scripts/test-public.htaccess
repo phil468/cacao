@@ -1,0 +1,11 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTP_HOST} !^test\.cacaodelperu\.com$ [NC]
+    RewriteRule ^ - [F,L]
+    RewriteRule ^\.well-known(?:/|$) - [L]
+    RewriteRule ^current(?:/|$) - [L]
+    RewriteCond %{DOCUMENT_ROOT}/current/$1 -f [OR]
+    RewriteCond %{DOCUMENT_ROOT}/current/$1 -d
+    RewriteRule ^(.+)$ current/$1 [L]
+    RewriteRule ^ current/index.php [L]
+</IfModule>

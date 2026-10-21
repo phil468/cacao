@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\InventoryMovement;
+use App\Models\InventoryLocation;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderReturn;
@@ -17,9 +17,13 @@ class OrderReturnService
     /**
      * @param  array<int, int>  $quantitiesByOrderItem
      */
-    public function process(Order $order, array $quantitiesByOrderItem, string $reason, ?User $actor = null): OrderReturn
+    public function process(Order $order, array $quantitiesByOrderItem, string $reason, ?User $actor = null, bool $damaged = false): OrderReturn
     {
-        return DB::transaction(function () use ($order, $quantitiesByOrderItem, $reason, $actor): OrderReturn {
+        if ($damaged) {
+            abort_unless($actor?->is_active && $actor->can('orders.manage'), 403);
+        }
+
+        return DB::transaction(function () use ($order, $quantitiesByOrderItem, $reason, $actor, $damaged): OrderReturn {
             $lockedOrder = Order::with('status')->lockForUpdate()->findOrFail($order->id);
             if (! in_array($lockedOrder->status->code, ['shipped', 'delivered'], true)) {
                 throw ValidationException::withMessages([
@@ -68,6 +72,7 @@ class OrderReturnService
                 'order_id' => $lockedOrder->id,
                 'actor_id' => $actor?->id,
                 'reason' => $reason,
+                'inventory_disposition' => $lockedOrder->is_historical ? 'historical_no_stock' : ($damaged ? 'quarantine' : 'available'),
             ]);
 
             foreach ($requested as $itemId => $quantity) {
@@ -79,17 +84,20 @@ class OrderReturnService
 
                 $return->items()->create(['order_item_id' => $item->id, 'quantity' => $quantity]);
                 $item->increment('returned_quantity', $quantity);
-                $variant->increment('stock', $quantity);
-                $variant->refresh();
-
-                InventoryMovement::create([
-                    'product_variant_id' => $variant->id,
+                if ($lockedOrder->is_historical) {
+                    continue;
+                }
+                $inventory = app(LocationInventoryService::class);
+                $location = $lockedOrder->inventory_location_id ? InventoryLocation::findOrFail($lockedOrder->inventory_location_id) : $inventory->central();
+                if ($damaged) {
+                    app(PosInventoryOperationsService::class)->quarantine($location->id, $variant->id, $quantity);
+                }
+                $inventory->change($variant, $location, $damaged ? 0 : $quantity, [
                     'order_id' => $lockedOrder->id,
                     'order_return_id' => $return->id,
                     'actor_id' => $actor?->id,
-                    'type' => 'customer_return',
-                    'quantity_delta' => $quantity,
-                    'balance_after' => $variant->stock,
+                    'type' => $damaged ? 'damaged_return' : 'customer_return',
+                    'quarantine_delta' => $damaged ? $quantity : 0,
                     'reason' => $reason,
                 ]);
             }

@@ -8,6 +8,7 @@ use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
+ * @property int|null $inventory_location_id
  * @property string $type
  * @property int $quantity_delta
  * @property int $balance_after
@@ -17,6 +18,19 @@ use Illuminate\Support\Carbon;
 class InventoryMovement extends Model
 {
     protected $guarded = [];
+
+    protected static function booted(): void
+    {
+        static::creating(function (InventoryMovement $movement): void {
+            $movement->inventory_location_id ??= InventoryLocation::where('code', 'central')->value('id');
+        });
+    }
+
+    /** @return BelongsTo<InventoryLocation, $this> */
+    public function location(): BelongsTo
+    {
+        return $this->belongsTo(InventoryLocation::class, 'inventory_location_id');
+    }
 
     /** @return BelongsTo<ProductVariant, $this> */
     public function variant(): BelongsTo

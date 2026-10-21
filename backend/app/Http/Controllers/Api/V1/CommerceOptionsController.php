@@ -13,7 +13,7 @@ class CommerceOptionsController extends Controller
     public function __invoke(): JsonResponse
     {
         $rates = DeliveryRate::where('is_active', true)->whereHas('deliveryZone', fn ($query) => $query->where('is_active', true))->with('deliveryZone')->get()->map(fn (DeliveryRate $rate): array => ['id' => $rate->id, 'zone' => ['id' => $rate->deliveryZone->id, 'name' => $rate->deliveryZone->name, 'districts' => $rate->deliveryZone->districts], 'amount' => $rate->amount, 'free_from_amount' => $rate->free_from_amount]);
-        $methods = PaymentMethod::where('is_active', true)->get()->map(fn (PaymentMethod $method): array => ['id' => $method->id, 'code' => $method->code, 'provider' => $method->provider, 'name' => $method->name, 'instructions' => $method->instructions, 'image_url' => $method->image_path ? asset('storage/'.$method->image_path) : null, 'requires_proof' => $method->requires_proof]);
+        $methods = PaymentMethod::where('is_active', true)->where('is_available_online', true)->get()->map(fn (PaymentMethod $method): array => ['id' => $method->id, 'code' => $method->code, 'provider' => $method->provider, 'name' => $method->name, 'instructions' => $method->instructions, 'image_url' => $method->image_path ? asset('storage/'.$method->image_path) : null, 'requires_proof' => $method->requires_proof]);
         $pickupLocations = PickupLocation::available()->orderBy('starts_at')->get()->map(fn (PickupLocation $location): array => [
             'id' => $location->id,
             'name' => $location->name,

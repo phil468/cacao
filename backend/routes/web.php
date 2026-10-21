@@ -7,6 +7,7 @@ use App\Http\Controllers\ContactController;
 use App\Http\Controllers\GoogleAuthController;
 use App\Http\Controllers\IzipayPaymentController;
 use App\Http\Controllers\PasswordResetController;
+use App\Http\Controllers\PromotionController;
 use App\Http\Controllers\StorefrontAuthController;
 use App\Http\Controllers\StorefrontCartController;
 use App\Http\Controllers\StorefrontCheckoutController;
@@ -19,7 +20,9 @@ use App\Models\Product;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', fn () => view('home', [
+require __DIR__.'/pos.php';
+
+Route::get('/', fn () => config('pos.domain') && request()->getHost() === config('pos.domain') ? redirect('/pos') : view('home', [
     'featured' => Product::where(['is_active' => true, 'is_featured' => true])->with('variants', 'images')->take(8)->get(),
     'banners' => Banner::published()->orderBy('sort_order')->orderBy('id')->get(),
     'carouselIntervalSeconds' => max(2, min(60, (int) data_get(BusinessSetting::getValue('business.storefront', []), 'carousel_interval_seconds', 7))),
@@ -42,6 +45,11 @@ Route::get('/sitemap.xml', function () {
     return response(view('sitemap', ['urls' => $urls])->render(), 200, ['Content-Type' => 'application/xml']);
 })->name('sitemap');
 Route::get('/catalogo', [CatalogController::class, 'index'])->name('catalog');
+Route::get('/promo', [PromotionController::class, 'index'])->name('promo');
+Route::post('/promo/registro', [PromotionController::class, 'register'])->middleware('throttle:promotion')->name('promo.register');
+Route::post('/promo/nuevo-participante', [PromotionController::class, 'reset'])->middleware('throttle:promotion')->name('promo.reset');
+Route::get('/promo/terminos', [PromotionController::class, 'terms'])->name('promo.terms');
+Route::get('/politica-de-privacidad', [PromotionController::class, 'privacy'])->name('privacy');
 Route::view('/chocolates-en-ica', 'local-chocolates')->name('local.chocolates');
 Route::get('/categoria/{category:slug}', [CatalogController::class, 'index'])->name('category');
 Route::get('/producto/{product:slug}', function (Product $product) {

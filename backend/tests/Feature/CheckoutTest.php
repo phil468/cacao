@@ -49,6 +49,14 @@ it('rejects overselling without changing stock', function () {
     expect($variant->fresh()->stock)->toBe(1);
 });
 
+it('rejects a physical-only payment method even when its id is manually submitted online', function () {
+    [$variant, $method, $rate] = checkoutFixture();
+    $method->update(['is_available_online' => false]);
+    $this->postJson('/api/v1/checkout', checkoutPayload($variant, $method, $rate, 1))
+        ->assertUnprocessable()->assertJsonValidationErrors('payment_method_id');
+    expect($variant->fresh()->stock)->toBe(3)->and(Order::count())->toBe(0);
+});
+
 it('requires payment proof before changing stock when the method requires it', function () {
     [$variant, $method, $rate] = checkoutFixture();
     $method->update(['requires_proof' => true]);
@@ -58,6 +66,14 @@ it('requires payment proof before changing stock when the method requires it', f
         ->assertJsonValidationErrors('payment_proof');
 
     expect($variant->fresh()->stock)->toBe(3);
+});
+
+it('does not allow the POS missing-image flag to bypass online payment evidence', function () {
+    [$variant, $method, $rate] = checkoutFixture();
+    $method->update(['requires_proof' => true]);
+    $this->postJson('/api/v1/checkout', [...checkoutPayload($variant, $method, $rate, 1), 'payment_proof_missing' => true])
+        ->assertUnprocessable()->assertJsonValidationErrors('payment_proof');
+    expect(Order::count())->toBe(0)->and($variant->fresh()->stock)->toBe(3);
 });
 
 it('restores stock once when an order is cancelled', function () {

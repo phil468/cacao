@@ -10,6 +10,13 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id
  * @property string $number
+ * @property string $sales_channel
+ * @property int|null $cashier_id
+ * @property int|null $inventory_location_id
+ * @property string $payment_proof_disk
+ * @property string|null $payment_proof_path
+ * @property bool $payment_proof_missing
+ * @property string|null $sale_reference
  * @property int|null $user_id
  * @property int $order_status_id
  * @property int $payment_method_id
@@ -21,6 +28,8 @@ use Illuminate\Support\Carbon;
  * @property int $discount_amount
  * @property int $delivery_amount
  * @property int $total_amount
+ * @property bool $is_historical
+ * @property int|null $cash_shift_id
  * @property string|null $coupon_code
  * @property array<string, mixed> $delivery_address
  * @property Carbon $created_at
@@ -38,6 +47,10 @@ class Order extends Model
             'pickup_location_snapshot' => 'array',
             'marketing_attribution' => 'array',
             'whatsapp_consent_at' => 'datetime',
+            'payment_confirmed_at' => 'datetime',
+            'payment_proof_missing' => 'boolean',
+            'is_historical' => 'boolean',
+            'sold_on' => 'date',
         ];
     }
 
@@ -83,9 +96,21 @@ class Order extends Model
         return $this->hasMany(PaymentTransaction::class);
     }
 
+    /** @return HasMany<OrderPayment, $this> */
+    public function posPayments(): HasMany
+    {
+        return $this->hasMany(OrderPayment::class);
+    }
+
     /** @return HasMany<OrderReturn, $this> */
     public function returns(): HasMany
     {
         return $this->hasMany(OrderReturn::class);
+    }
+
+    /** @return HasMany<PromoCode, $this> */
+    public function promoCodes(): HasMany
+    {
+        return $this->hasMany(PromoCode::class);
     }
 }

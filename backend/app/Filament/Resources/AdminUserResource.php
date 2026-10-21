@@ -28,7 +28,7 @@ class AdminUserResource extends AdminResource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->whereHas('roles', fn (Builder $query): Builder => $query->where('name', 'administrator'));
+        return parent::getEloquentQuery()->whereHas('roles', fn (Builder $query): Builder => $query->whereIn('name', ['administrator', 'seller']));
     }
 
     public static function form(Schema $schema): Schema
@@ -40,8 +40,9 @@ class AdminUserResource extends AdminResource
             TextInput::make('password')->label('Contraseña')->password()->revealable()
                 ->required(fn (string $operation): bool => $operation === 'create')
                 ->minLength(12)->dehydrated(fn (?string $state): bool => filled($state)),
-            Select::make('roles')->label('Roles')->relationship('roles', 'name')
+            Select::make('roles')->label('Roles')->relationship('roles', 'name', modifyQueryUsing: fn (Builder $query) => $query->whereIn('name', ['administrator', 'seller']))
                 ->multiple()->preload()->searchable()->required(),
+            Select::make('inventoryLocations')->label('Puntos autorizados para caja')->relationship('inventoryLocations', 'name', modifyQueryUsing: fn (Builder $query) => $query->where('kind', 'pos'))->multiple()->preload()->searchable()->helperText('El rol seller solo permite vender en los puntos asignados. No da acceso general al administrador.'),
             Toggle::make('is_active')->label('Activo')->default(true),
         ]);
     }

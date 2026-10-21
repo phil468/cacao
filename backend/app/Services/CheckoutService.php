@@ -7,21 +7,18 @@ use App\Jobs\SendOrderCustomerNotifications;
 use App\Jobs\SendTelegramOrderNotification;
 use App\Models\Coupon;
 use App\Models\DeliveryRate;
-use App\Models\InventoryMovement;
 use App\Models\Order;
 use App\Models\OrderStatus;
 use App\Models\PaymentMethod;
 use App\Models\PickupLocation;
-use App\Models\ProductVariant;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
 class CheckoutService
 {
-    public function __construct(private PaymentGateway $payments, private CouponPricingService $couponPricing) {}
+    public function __construct(private PaymentGateway $payments, private CouponPricingService $couponPricing, private OrderLineService $orderLines) {}
 
     /**
      * @param  array<int, array{variant_id: int, quantity: int}>  $requestedItems
@@ -31,27 +28,8 @@ class CheckoutService
     public function checkout(User $user, array $requestedItems, array $address, int $paymentMethodId, ?int $deliveryRateId, ?string $couponCode = null, ?string $proofPath = null, bool $whatsAppOptIn = false, ?array $marketingAttribution = null, string $fulfillmentType = 'delivery', ?int $pickupLocationId = null, ?string $billingDocumentType = null, ?string $billingDocumentNumber = null): Order
     {
         return DB::transaction(function () use ($user, $requestedItems, $address, $paymentMethodId, $deliveryRateId, $couponCode, $proofPath, $whatsAppOptIn, $marketingAttribution, $fulfillmentType, $pickupLocationId, $billingDocumentType, $billingDocumentNumber): Order {
-            $variants = ProductVariant::with('product')
-                ->whereIn('id', collect($requestedItems)->pluck('variant_id'))
-                ->lockForUpdate()
-                ->get()
-                ->keyBy('id');
-            $lines = [];
-            $subtotal = 0;
-
-            foreach ($requestedItems as $requested) {
-                $quantity = $requested['quantity'];
-                $variant = $variants->get($requested['variant_id']);
-
-                if (! $variant || ! $variant->is_active || ! $variant->product->is_active || $quantity < 1 || $variant->stock < $quantity) {
-                    throw new ConflictHttpException('Uno de los productos no tiene stock suficiente.');
-                }
-
-                $unitPrice = $variant->currentPriceAmount();
-                $lineTotal = $unitPrice * $quantity;
-                $subtotal += $lineTotal;
-                $lines[] = [$variant, $quantity, $unitPrice, $lineTotal];
-            }
+            $lines = $this->orderLines->prepare($requestedItems);
+            $subtotal = array_sum(array_column($lines, 3));
 
             $coupon = $couponCode ? Coupon::where('code', strtoupper($couponCode))->lockForUpdate()->first() : null;
             $discount = $this->couponPricing->discount($coupon, $subtotal, filled($couponCode), $user);
@@ -74,7 +52,10 @@ class CheckoutService
                 }
                 $delivery = $rate->free_from_amount !== null && $subtotal - $discount >= $rate->free_from_amount ? 0 : $rate->amount;
             }
-            $method = PaymentMethod::where('is_active', true)->findOrFail($paymentMethodId);
+            $method = PaymentMethod::where('is_active', true)->where('is_available_online', true)->find($paymentMethodId);
+            if (! $method) {
+                throw ValidationException::withMessages(['payment_method_id' => 'El método de pago no está disponible para compras en línea.']);
+            }
             $status = OrderStatus::where('code', $proofPath ? 'payment_review' : 'pending_payment')->firstOrFail();
 
             $order = Order::create([
@@ -95,21 +76,7 @@ class CheckoutService
                 'marketing_attribution' => $marketingAttribution,
             ]);
 
-            foreach ($lines as [$variant, $quantity, $unitPrice, $lineTotal]) {
-                $order->items()->create([
-                    'product_variant_id' => $variant->id, 'product_name' => $variant->product->name,
-                    'variant_name' => $variant->name, 'sku' => $variant->sku,
-                    'description' => $variant->product->short_description, 'unit_price_amount' => $unitPrice,
-                    'quantity' => $quantity, 'line_total_amount' => $lineTotal,
-                ]);
-                $variant->decrement('stock', $quantity);
-                $variant->refresh();
-                InventoryMovement::create([
-                    'product_variant_id' => $variant->id, 'order_id' => $order->id, 'actor_id' => $user->id,
-                    'type' => 'sale', 'quantity_delta' => -$quantity, 'balance_after' => $variant->stock,
-                    'reason' => 'Order '.$order->number,
-                ]);
-            }
+            $this->orderLines->commit($order, $lines, $user);
 
             if ($coupon) {
                 $coupon->increment('usage_count');

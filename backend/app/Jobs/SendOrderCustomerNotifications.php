@@ -25,11 +25,13 @@ class SendOrderCustomerNotifications implements ShouldQueue
         $subject = "Pedido {$order->number}: {$order->status->name}";
         $body = "Hola {$order->customer_name}. Tu pedido {$order->number} está en estado: {$order->status->name}. Total: S/ ".number_format($order->total_amount / 100, 2).'.';
 
-        $this->deliver($order, 'email', $order->customer_email, function () use ($order, $subject, $body): string {
-            Mail::raw($body, fn ($message) => $message->to($order->customer_email)->subject($subject));
+        if (filter_var($order->customer_email, FILTER_VALIDATE_EMAIL)) {
+            $this->deliver($order, 'email', $order->customer_email, function () use ($order, $subject, $body): string {
+                Mail::raw($body, fn ($message) => $message->to($order->customer_email)->subject($subject));
 
-            return 'mail';
-        });
+                return 'mail';
+            });
+        }
 
         if ($order->whatsapp_consent_at !== null) {
             $this->deliver($order, 'whatsapp', $order->customer_phone, fn (): ?string => $whatsApp->send($order));

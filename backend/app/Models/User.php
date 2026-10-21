@@ -42,6 +42,12 @@ class User extends Authenticatable implements FilamentUser
         return $this->is_active && $this->hasRole('administrator');
     }
 
+    /** @return BelongsToMany<InventoryLocation, $this> */
+    public function inventoryLocations(): BelongsToMany
+    {
+        return $this->belongsToMany(InventoryLocation::class, 'inventory_location_user');
+    }
+
     /** @return HasMany<Address, $this> */
     public function addresses(): HasMany
     {
