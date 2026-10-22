@@ -193,6 +193,25 @@ operation is under review, posting or awaiting an uncertain-result retry.
 
 ## Verification
 
+### Replenishment Suggestions
+
+Automatic quantities apply when a presentation is at or below its minimum.
+They deduct the point's available balance from the target and cap the result
+at central available stock: `min(max(central, 0), max(target - available, 0))`.
+An empty central warehouse suggests zero; points above minimum suggest zero.
+The user can still enter a different request quantity deliberately. Requests do
+not reserve stock; confirmation revalidates the complete transfer atomically.
+
+En **Reposición**, un usuario con permiso de inventario puede editar **Mínimo**
+y **Objetivo** por producto y punto de venta. Debe pulsar **Revisar mínimos y
+objetivos** y confirmar para guardarlos; editar los campos no basta. El objetivo
+no puede ser menor que el mínimo. La cantidad sugerida usa los valores guardados
+y se actualiza al refrescar los saldos después de confirmar.
+
+Whole-unit operation rows use a compact two-column layout, with product details
+on the left and quantities on the right. Search fields include an inline SVG
+magnifier without adding an icon package or an external asset request.
+
 Full regression suite: **207 tests / 1443 assertions passed**. Focused operation
 coverage passed **22 tests / 100 assertions**, including stock-neutral historical
 sales/returns, current-date shifts, stable closings after late entries, split

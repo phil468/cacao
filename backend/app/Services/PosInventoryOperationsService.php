@@ -38,7 +38,7 @@ class PosInventoryOperationsService
             $active = ! $variant->trashed() && $variant->is_active && $variant->product->is_active && ! $variant->product->trashed();
             $rows[] = ['variant_id' => $variant->id, 'name' => $variant->product->name.' / '.$variant->name,
                 'sku' => $variant->sku, 'available' => $available, 'quarantine' => $held, 'minimum' => $minimum, 'target' => $target,
-                'central_available' => $variant->stock, 'suggested' => $active && $available <= $minimum ? max(0, $target - $available) : 0, 'active' => $active];
+                'central_available' => $variant->stock, 'suggested' => $active && $available <= $minimum ? min(max(0, (int) $variant->stock), max(0, $target - $available)) : 0, 'active' => $active];
         }
 
         return $rows;

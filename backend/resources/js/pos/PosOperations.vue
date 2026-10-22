@@ -82,6 +82,7 @@ async function loadReport() {busy.value=true;try{report.value=await api<Report>(
 <template>
 <section class="operations card">
  <h2>Operación del punto de venta</h2><p v-if="state.day_closed" class="proof-warning">Inventario de hoy cerrado. Los cierres confirmados no se modifican.</p>
+ <details v-if="tab==='restock'" class="restock-help"><summary>¿Cómo se calcula la reposición y dónde se configura?</summary><p>La sugerencia descuenta lo disponible en este punto de venta del objetivo y se limita al stock central. Se precarga solo al alcanzar el mínimo; si central no tiene unidades, se precarga 0. Solicitar no reserva existencias.</p><p v-if="user.can_inventory">Puedes cambiar Mínimo y Objetivo debajo de cada producto. Para guardarlos en este punto de venta, pulsa «Revisar mínimos y objetivos» al final de la lista y confirma. Enviar una solicitud no guarda esos cambios.</p></details>
  <fieldset :disabled="locked || review !== null"><nav class="categories" aria-label="Operaciones"><button v-for="item in [{id:'shift',label:'Turno y caja'},{id:'out',label:'Salidas / fallados'},{id:'count',label:'Inventario diario'},{id:'restock',label:'Reposición'},...(user.can_discount?[{id:'report',label:'Reporte diario'}]:[])]" :key="item.id" type="button" :class="{selected:tab===item.id}" @click="tab=item.id;search=''">{{item.label}}</button></nav></fieldset>
  <section v-if="review" class="operation-review"><h3>{{review.title}}</h3><ul><li v-for="(line,index) in review.lines" :key="index">{{line}}</li></ul><p>Revisa antes de confirmar. Si se pierde la respuesta, reintenta esta misma operación.</p><div class="actions"><button :disabled="locked" @click="review=null">Volver a editar</button><button v-if="!pending" class="primary" :disabled="busy" @click="confirm">Confirmar operación</button></div></section>
  <button v-if="pending" class="primary" :disabled="busy" @click="confirm">{{busy?'Registrando…':'Reintentar la misma operación'}}</button>
@@ -102,3 +103,34 @@ async function loadReport() {busy.value=true;try{report.value=await api<Report>(
  </fieldset><button type="button" :disabled="locked || review!==null" @click="emit('refresh')">Actualizar saldos y resúmenes</button>
 </section>
 </template>
+
+<style scoped>
+/* Keep whole-unit entry beside the product, without changing review or payloads. */
+.operation-row:has(> small):has(> label) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(110px, 150px);
+    column-gap: 18px;
+    row-gap: 6px;
+    align-items: start;
+}
+.operation-row:has(> label) > strong,
+.operation-row:has(> label) > small,
+.operation-row:has(> label) > p { grid-column: 1; margin: 0; }
+.operation-row:has(> small) > label { grid-column: 2; margin: 0; font-size: 11px; }
+.operation-row:has(> small) > label:first-of-type { grid-row: 1 / span 2; }
+.operation-row:has(> small) > .actions { grid-column: 1 / -1; justify-content: flex-end; margin-top: 8px; }
+.operation-row:has(> small) > .actions > label { flex: 0 1 150px; margin: 0; font-size: 11px; }
+.operation-row:has(> small) input[type="number"] { text-align: center; padding-inline: 8px; }
+.restock-help { padding: 12px; background: #f4f6ed; border-radius: 10px; font-size: 13px; }
+.restock-help summary { cursor: pointer; font-weight: 600; }
+input[type="search"] {
+    padding-left: 42px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23655b51' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='10.5' cy='10.5' r='6.5'/%3E%3Cpath d='m16 16 4.5 4.5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: 14px center;
+}
+@media (max-width: 480px) {
+    .operation-row:has(> small):has(> label) { grid-template-columns: minmax(0, 1fr) 110px; column-gap: 10px; }
+    .operation-row:has(> small) > .actions > label { flex-basis: 110px; }
+}
+</style>

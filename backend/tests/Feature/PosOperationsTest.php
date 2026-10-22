@@ -202,6 +202,22 @@ it('audits count differences only for inventory managers and preserves the closi
     app(PosInventoryOperationsService::class)->record(opsOut($this), $this->manager);
     expect(DB::table('inventory_closings')->value('snapshot'))->toBe($snapshot);
 });
+it('caps replenishment suggestions at central stock after deducting point stock', function (int $available, int $central, int $minimum, int $target, int $expected) {
+    LocationStock::where('inventory_location_id', $this->point->id)->update(['quantity' => $available]);
+    $this->variant->update(['stock' => $central]);
+    app(ReplenishmentService::class)->settings(['location_id' => $this->point->id, 'items' => [['variant_id' => $this->variant->id, 'minimum_quantity' => $minimum, 'target_quantity' => $target]]], $this->manager);
+    $rows = app(PosInventoryOperationsService::class)->rows($this->point);
+    expect($rows[0]['suggested'])->toBe($expected)->and($this->variant->fresh()->stock)->toBe($central)
+        ->and(LocationStock::where('inventory_location_id', $this->point->id)->value('quantity'))->toBe($available);
+})->with([
+    'empty point limited central' => [0, 6, 5, 15, 6],
+    'subtract point balance first' => [3, 6, 5, 15, 6],
+    'enough central' => [3, 30, 5, 15, 12],
+    'no central' => [0, 0, 5, 15, 0],
+    'above minimum no automatic request' => [6, 30, 5, 15, 0],
+    'target already reached' => [5, 30, 5, 5, 0],
+]);
+
 it('uses per-point minimum targets and requests stock without changing or reserving it', function () {
     $service = app(ReplenishmentService::class);
     $service->settings(['location_id' => $this->point->id, 'items' => [['variant_id' => $this->variant->id, 'minimum_quantity' => 10, 'target_quantity' => 15]]], $this->manager);
