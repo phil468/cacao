@@ -193,6 +193,16 @@ operation is under review, posting or awaiting an uncertain-result retry.
 
 ## Verification
 
+### Sale Navigation
+
+Durante una venta, **Volver al inicio** permanece visible en catálogo y resumen,
+tanto en móvil como en escritorio. Si hay productos, datos del cliente, pagos,
+descuentos o datos históricos sin guardar, solicita confirmación antes de
+descartarlos. **Cancelar venta**, el logo y **Salir** respetan esa advertencia.
+Una venta con resultado pendiente bloquea la salida; debe reintentarse con el
+mismo identificador para evitar duplicados. Volver al inicio no cierra el turno,
+no anula ventas registradas ni realiza movimientos de stock.
+
 ### Replenishment Suggestions
 
 Automatic quantities apply when a presentation is at or below its minimum.
@@ -202,11 +212,18 @@ An empty central warehouse suggests zero; points above minimum suggest zero.
 The user can still enter a different request quantity deliberately. Requests do
 not reserve stock; confirmation revalidates the complete transfer atomically.
 
-En **Reposición**, un usuario con permiso de inventario puede editar **Mínimo**
-y **Objetivo** por producto y punto de venta. Debe pulsar **Revisar mínimos y
-objetivos** y confirmar para guardarlos; editar los campos no basta. El objetivo
-no puede ser menor que el mínimo. La cantidad sugerida usa los valores guardados
-y se actualiza al refrescar los saldos después de confirmar.
+En **Reposición** hay dos vistas independientes. **Solicitar productos** es la
+vista simplificada predeterminada: muestra cantidades y solicitudes recientes,
+sin campos editables de mínimo u objetivo. **Configurar mínimos y objetivos**
+solo aparece con permiso de inventario y permite configurar cada producto del
+punto seleccionado sin motivo ni solicitud de reposición. Debe pulsar **Revisar
+mínimos y objetivos** y confirmar para guardar; editar los campos no basta.
+Solo se envían los productos modificados, incluso si están ocultos por búsqueda,
+y la revisión muestra valores anteriores y nuevos. El objetivo no puede ser
+menor que el mínimo. Cambiar entre vistas no envía ni borra los borradores;
+una actualización de saldos después de guardar recarga los valores del servidor.
+Las sugerencias usan la configuración guardada. Los bloqueos de revisión,
+confirmación y reintento protegen también los botones de cambio de vista.
 
 Whole-unit operation rows use a compact two-column layout, with product details
 on the left and quantities on the right. Search fields include an inline SVG

@@ -85,6 +85,23 @@ function fillRemaining(row: PaymentRow) {
     row.amount = ((total.value - other) / 100).toFixed(2);
 }
 const locked = computed(() => busy.value || pending.value !== null || operationsLocked.value || pointRefreshing.value);
+const hasSaleChanges = computed(() => cart.value.length > 0 || customer.value !== 'Consumidor final' || customerEmail.value !== '' || phone.value !== ''
+    || discountType.value !== 'amount' || decimalUnits(discount.value || '0') !== 0 || confirmed.value || soldOn.value !== '' || historicalReason.value !== ''
+    || payments.value.length !== 1 || payments.value.some(row => row.methodId !== '' || row.cashReceived !== '' || row.proof !== null || row.proofMissing || row.uploadedPath !== null || decimalUnits(row.amount) !== 0));
+function confirmDiscardSale() {
+    return !selling.value || !hasSaleChanges.value || window.confirm('Esta venta tiene cambios sin guardar. Si vuelves al inicio, se descartarán los productos, datos y pagos ingresados. No se anulará ninguna venta registrada. ¿Deseas continuar?');
+}
+async function returnToHome() {
+    if (locked.value) {
+        error.value = pending.value ? 'La venta tiene un resultado pendiente. Reintenta la misma venta antes de salir para evitar duplicados.' : 'Espera a que termine la operación antes de salir.';
+        return;
+    }
+    if (!confirmDiscardSale()) return;
+    stopCamera(); resetSale(); productCode.value = ''; window.scrollTo({top:0,behavior:'smooth'}); await refreshPoint();
+}
+function navigateHome(event: MouseEvent) {
+    if (selling.value || locked.value) { event.preventDefault(); void returnToHome(); }
+}
 const couponLimit = computed(() => {
     const campaign = catalog.value.promotion;
     if (receipt.value?.is_historical || historical.value) return 0;
@@ -99,6 +116,7 @@ async function login() {
     finally { busy.value = false; }
 }
 async function logout() {
+    if (locked.value || !confirmDiscardSale()) return;
     busy.value = true;
     try { await api('logout', { method: 'POST' }); resetSale(); stopCamera(); session.value = null; locationId.value = ''; catalog.value.variants = []; }
     catch (e) { report(e); } finally { busy.value = false; }
@@ -227,7 +245,7 @@ onBeforeUnmount(() => { clearTimeout(noticeTimer); stopCamera(); document.remove
 
 <template>
     <div class="pos-layout">
-        <header class="pos-header"><a href="/pos" class="brand">CACAO <span>DEL PERÚ · CAJA</span></a><span v-if="session" class="staff">{{ session.user.name }}</span><button v-if="session" class="ghost" :disabled="locked" @click="logout">Salir</button></header>
+        <header class="pos-header"><a href="/pos" class="brand" @click="navigateHome">CACAO <span>DEL PERÚ · CAJA</span></a><span v-if="session" class="staff">{{ session.user.name }}</span><button v-if="session" class="ghost" :disabled="locked" @click="logout">Salir</button></header>
         <section class="toast-stack" aria-label="Mensajes de caja">
             <div v-if="error" role="alert" class="alert error toast"><span>{{ error }}</span><button type="button" class="toast-close" aria-label="Cerrar error" @click="error = ''">×</button></div>
             <div v-if="notice" role="status" class="alert success toast"><span>{{ notice }}</span><button type="button" class="toast-close" aria-label="Cerrar notificación" @click="notice = ''">×</button></div>
@@ -249,6 +267,7 @@ onBeforeUnmount(() => { clearTimeout(noticeTimer); stopCamera(); document.remove
                     <section v-if="catalog.promotion && couponLimit > 0" class="coupon-panel"><h2>Entrega de cupones físicos</h2><p>{{ catalog.promotion.name }} · Hasta {{ couponLimit }} cupón(es) por esta compra.</p><p>Habilitados: {{ receipt.codes.length }} / {{ couponLimit }}</p><ul><li v-for="code in receipt.codes" :key="code">{{ code }}</li></ul><form v-if="receipt.codes.length < couponLimit" @submit.prevent="handover()"><label>Código del cupón<input v-model="codeInput" autocomplete="off" maxlength="2048" required :disabled="busy" /></label><div class="actions"><button type="button" :disabled="busy" @click="startCamera('coupon')">Escanear cupón</button><button class="primary" :disabled="busy">Habilitar y registrar entrega</button></div></form><p>El cliente completa después sus datos y aceptación de las bases en /promo.</p></section>
                     <button class="primary" :disabled="busy" @click="beginSale()">Nueva venta</button><button :disabled="busy" @click="resetSale(); refreshPoint()">Volver a operación y cierres</button>
                 </section>
+                <section v-if="selling && !receipt" class="sale-navigation card" aria-label="Navegación de venta"><button type="button" :disabled="locked" @click="returnToHome">← Volver al inicio</button><small>{{ pending ? 'Venta pendiente de confirmación' : hasSaleChanges ? 'Venta sin guardar' : 'Nueva venta' }}</small></section>
                 <div v-if="selling && !receipt" class="sale-grid" :class="{ 'show-checkout': showCheckout }">
                     <section class="catalog card"><div class="section-heading"><div><p class="eyebrow">ELIGE Y AGREGA</p><h1>Productos</h1></div><button :disabled="locked" @click="startCamera('product')">Escanear producto</button></div>
                         <fieldset :disabled="locked"><label class="search-label">Buscar producto<input v-model="search" type="search" placeholder="Nombre, presentación o SKU" /></label><div class="categories"><button v-for="name in categories" :key="name" :class="{ selected: category === name }" @click="category = name">{{ name }}</button></div><form class="scan-input" @submit.prevent="scannedProduct()"><input v-model="productCode" aria-label="Código de barras o SKU" placeholder="Código de barras o SKU" autocomplete="off" /><button>Buscar código</button></form>
@@ -277,7 +296,7 @@ onBeforeUnmount(() => { clearTimeout(noticeTimer); stopCamera(); document.remove
                                 </section>
                                 </article><button v-if="payments.length < Math.min(5, catalog.payment_methods.length)" type="button" @click="payments.push(newPayment())">Agregar otro medio de pago</button><p class="payment-balance" :class="{ 'proof-warning': remaining !== 0 }" aria-live="polite">{{ remaining < 0 ? 'Exceso por corregir' : 'Saldo por distribuir' }}: {{ money(Math.abs(remaining)) }}</p></section>
                                 <label class="check"><input v-model="confirmed" type="checkbox" required /><span>Confirmo que recibí el pago y entregué los productos.</span></label><p v-if="catalog.promotion && !historical">Esta compra puede recibir {{ couponLimit }} cupón(es). Podrás escanearlos después de guardar.</p>
-                            </fieldset><button class="primary pay" :disabled="busy || (!pending && !cart.length)">{{ busy ? 'Registrando…' : pending ? 'Reintentar la misma venta' : `Registrar venta · ${money(total)}` }}</button><button type="button" :disabled="locked" @click="resetSale">Cancelar venta</button><p class="small">El servidor revalida precios y stock. Se necesita conexión; no se registran ventas sin internet.</p></form></section>
+                            </fieldset><button class="primary pay" :disabled="busy || (!pending && !cart.length)">{{ busy ? 'Registrando…' : pending ? 'Reintentar la misma venta' : `Registrar venta · ${money(total)}` }}</button><button type="button" :disabled="locked" @click="returnToHome">Cancelar venta</button><p class="small">El servidor revalida precios y stock. Se necesita conexión; no se registran ventas sin internet.</p></form></section>
                 </div>
             </template>
         </main>
