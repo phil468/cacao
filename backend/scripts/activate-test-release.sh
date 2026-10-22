@@ -63,4 +63,15 @@ ln -sfn ../../cacao-test-app/current/public "$PUBLIC_ROOT/current"
 php artisan up
 curl --fail --silent --show-error --max-time 30 --retry 3 "https://test.cacaodelperu.com/up?release=$RELEASE_ID" >/dev/null
 trap - ERR
+# Keep the active release and the newest inactive release. Never follow links.
+ACTIVE_RELEASE="$(readlink -f "$ROOT/current")"
+KEPT_PREVIOUS=0
+find "$ROOT/releases" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' | sort -nr | cut -d' ' -f2- | while IFS= read -r release_path; do
+    [[ "$release_path" == "$ROOT/releases/"* && ! -L "$release_path" ]]
+    [[ "$(dirname "$(realpath "$release_path")")" == "$ROOT/releases" ]]
+    [[ "$(basename "$release_path")" =~ ^[a-f0-9]{40}-[0-9]+-[0-9]+$ ]]
+    [ "$release_path" = "$ACTIVE_RELEASE" ] && continue
+    if [ "$KEPT_PREVIOUS" -eq 0 ]; then KEPT_PREVIOUS=1; continue; fi
+    rm -rf -- "$release_path"
+done
 echo "Test release activated. Production links and database were not targeted."
