@@ -1,0 +1,52 @@
+.promotion-page{--promo-gold:#d7b56d;--promo-brown:#302018;--promo-muted:#6d5b4c}
+.promotion-page .promo-hero{position:relative;isolation:isolate;overflow:hidden;grid-template-columns:minmax(0,1.5fr) minmax(250px,.8fr);gap:clamp(2rem,5vw,5rem);padding-block:clamp(3rem,7vw,6rem);background:#302018;color:#fff8e9}
+.promotion-page .promo-hero::before{content:"";position:absolute;z-index:-1;inset:0;background:linear-gradient(90deg,#302018 2%,#302018eb 50%,#3020189c),url('/images/brand/cacao-botanical-hero.jpg') center/cover;opacity:.85}
+.promotion-page .promo-hero .eyebrow{color:#e4c98f;letter-spacing:.18em}
+.promotion-page .promo-hero h1{font-family:Georgia,'Times New Roman',serif;font-size:clamp(2.25rem,5vw,4.8rem);font-weight:400;line-height:1.08;letter-spacing:-.035em;margin:1rem 0 1.5rem;max-width:820px}
+.promotion-page .promo-hero p{color:#efe0c9;line-height:1.7;max-width:560px}
+.promotion-page .promo-hero .button{display:inline-flex;align-items:center;justify-content:space-between;gap:2rem;background:#d7b56d;color:#24140f;border:1px solid #d7b56d;margin-top:1rem;padding:1rem 1.5rem;font-weight:700;letter-spacing:.07em}
+.promotion-page .promo-hero .button:hover{background:#f0d49a}
+.promotion-page .promo-hero .promo-hero-note{font-size:.8rem;margin-top:1rem}
+.promotion-page .promo-date{position:relative;gap:1.1rem;padding:2.5rem 1.5rem;background:#271910d9;border:1px solid #b59457;box-shadow:0 16px 50px #120b0740;outline:1px solid #b5945755;outline-offset:-9px}
+.promotion-page .promo-date .promo-seal{font-size:2rem;color:#e6c781;line-height:1}
+.promotion-page .promo-date strong{font-size:clamp(2rem,3.5vw,3rem);color:#f3dca7;line-height:1.15}
+.promotion-page .promo-date a{font-size:.78rem;color:#f0ddba;text-decoration:underline;text-underline-offset:4px;margin-top:.5rem}
+.promotion-page .promo-how{padding-block:1.75rem;background:#f5eddf;border-bottom:1px solid #ddcfb7}
+.promo-how ol{list-style:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2rem;margin:0;padding:0}
+.promo-how li{display:flex;gap:1rem;align-items:flex-start}
+.promo-how li>span{font:italic 2rem Georgia,serif;color:#8c6a2b;line-height:1.2}
+.promo-how strong{display:block;font-size:.95rem;color:#302018}
+.promo-how p{font-size:.82rem;line-height:1.6;color:#6d5b4c;margin:.4rem 0 0}
+.promotion-page .promo-prizes{padding-block:clamp(3rem,6vw,5rem);background:#fffdf8}
+.promotion-page .promo-prizes h2{font:clamp(2rem,4vw,3rem) Georgia,serif;margin:.75rem 0}
+.promotion-page .promo-prize-grid{gap:1.5rem;margin-top:2.5rem}
+.promotion-page .promo-prize-grid article{position:relative;padding:2.25rem 1.5rem;background:linear-gradient(160deg,#fffdf8,#f3ead9);border:1px solid #dfcfad;border-radius:4px;box-shadow:0 8px 24px #30201808}
+.promotion-page .promo-prize-icon{width:90px;height:90px;background:#e9d6b1;color:#765624;margin-bottom:1.4rem;border:1px solid #c6a66a}
+.promo-prize-icon svg{width:52px;height:52px}
+.promo-prize-label{font-size:.65rem;font-weight:700;letter-spacing:.16em;color:#80602a}
+.promotion-page .promo-prize-grid h3{font:1.45rem/1.3 Georgia,serif;margin:.75rem 0}
+.promotion-page .promo-prize-grid p{font-size:.9rem;color:#6d5b4c;line-height:1.6}
+.promotion-page .promo-registration{padding-block:clamp(3rem,6vw,5rem);background:#ede2cf;align-items:start;border-top:1px solid #dcc9a5;gap:clamp(2rem,6vw,5rem)}
+.promotion-page .promo-registration h2{font:clamp(2rem,4vw,3rem)/1.1 Georgia,serif;margin:1rem 0 1.5rem}
+.promotion-page .promo-registration>div>p{line-height:1.8;color:#604f42}
+.promotion-page .promo-registration .form-card{background:#fffdf9;border:1px solid #d4bc8c;border-top:4px solid #ae8843;border-radius:8px;padding:clamp(1.25rem,3vw,2.25rem);box-shadow:0 16px 45px #3020180c}
+.promo-form-heading{padding-bottom:1.25rem;margin-bottom:1.5rem;border-bottom:1px solid #e5d8c1}
+.promo-form-heading .eyebrow{font-size:.6rem;letter-spacing:.12em}
+.promo-form-heading h3{font:1.55rem/1.25 Georgia,serif;margin:.65rem 0}
+.promo-form-heading p{font-size:.85rem;color:#6d5b4c;line-height:1.5;margin:.5rem 0 0}
+.promotion-page .promo-registration input:not([type=checkbox]){border-radius:4px;background:#fff;min-height:48px}
+.promotion-page .promo-registration input:focus-visible{outline:2px solid #95702c;outline-offset:3px}
+.promotion-page .promo-code-input{background:#fbf6eb!important;border:1px solid #b99a5c;text-align:center;font-weight:700;letter-spacing:.25em}
+.promotion-page .promo-registration button[type=submit]{min-height:48px;border-radius:4px}
+.promotion-page .form-card button[type=submit]{width:100%;background:#302018;color:#fff4d8;font-weight:700;letter-spacing:.04em;margin-top:.75rem}
+.promotion-page .promo-feedback,.promotion-page .promo-errors{border-radius:4px;margin-bottom:1.25rem}
+.promotion-page .promo-participant{padding:1.25rem;background:#fff8ed;border:1px solid #d5c19a;border-radius:4px}
+.promotion-page .promo-participant h3{font-size:1rem;margin-top:0}
+.promotion-page .promo-participant dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:.5rem 1rem;font-size:.9rem}
+.promotion-page .promo-participant dd{margin:0;overflow-wrap:anywhere;font-weight:700}
+.promotion-page .promo-participant p{font-size:.8rem;line-height:1.6}
+.promotion-page .promo-code-list{display:flex;flex-wrap:wrap;gap:.5rem}
+.promotion-page .promo-code-list li{padding:.5rem .75rem;background:#fff8ed;border:1px solid #d5c19a;border-radius:4px}
+.promotion-page a:focus-visible,.promotion-page button:focus-visible{outline:3px solid #a47c32;outline-offset:4px}
+@media(max-width:850px){.promotion-page .promo-hero{grid-template-columns:1fr;gap:2rem}.promotion-page .promo-date{max-width:480px;width:100%;justify-self:center}.promo-how ol{grid-template-columns:1fr;gap:1.25rem}.promo-how li{align-items:center}.promotion-page .promo-prize-grid{grid-template-columns:1fr}.promotion-page .promo-prize-grid article{padding:1.75rem 1.25rem}.promotion-page .promo-registration{grid-template-columns:1fr}.promotion-page .promo-hero h1{max-width:600px}}
+@media(max-width:420px){.promotion-page .promo-hero{padding-inline:1.25rem}.promotion-page .promo-hero .button{width:100%;gap:.75rem;font-size:.73rem}.promotion-page .promo-date{padding:2rem 1.1rem}.promotion-page .promo-code-input{font-size:1.5rem}.promotion-page .promo-registration .check-field{font-size:.82rem}}

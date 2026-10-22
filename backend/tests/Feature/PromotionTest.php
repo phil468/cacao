@@ -39,6 +39,18 @@ beforeEach(function () {
     $this->identity = ['full_name' => 'Ana Pérez', 'email' => 'ana@example.test', 'phone' => '999999999', 'terms_accepted' => '1'];
 });
 
+it('shows the anniversary presentation and keeps the registration and legal links', function () {
+    $this->get(route('promo'))->assertOk()
+        ->assertSee('Cómo participar')
+        ->assertSee('Disfruta tu compra')
+        ->assertSee('Tu próximo momento especial empieza aquí')
+        ->assertSee('Caja de 10 chocolates Miskicha')
+        ->assertSee(route('promo.register'), false)
+        ->assertSee(route('promo.terms'), false)
+        ->assertSee('name="terms_accepted"', false)
+        ->assertSee('name="marketing_consent"', false);
+});
+
 it('registers a valid lowercase code and keeps personal data in the server session', function () {
     $this->post(route('promo.register'), [...$this->identity, 'code' => strtolower($this->code->code)])
         ->assertRedirect(route('promo').'#registration')->assertSessionHas('promotion.participant_id');
