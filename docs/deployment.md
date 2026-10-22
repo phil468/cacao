@@ -150,7 +150,20 @@ The deployment workflow:
 8. Runs `php artisan migrate --force`, storage linking, Filament assets, and
    `php artisan optimize`.
 9. Atomically switches `current`.
-10. Checks `/up`; an error restores the previous release link.
+10. Checks `/up`. Before schema migrations, a backup failure restores availability
+    of the unchanged previous release. After migrations start, errors leave the
+    site in maintenance: never run old global-inventory code against a migrated
+    location-inventory database. Recovery is forward/manual, not an automatic SQL
+    restore that could erase orders.
+
+The activation validates the production application root and environment, enters
+maintenance and restarts queue workers before taking a private SQL backup. It
+runs only the idempotent `PromotionSeeder`, `PointOfSaleSeeder` and `PosAccessSeeder`
+for operational defaults/permissions. It never copies local/test records or runs
+the full demo/catalog seeder. Existing stock stays in the central warehouse;
+point balances must be supplied by explicit audited transfers. Existing campaign
+dates and activation are preserved; a new default campaign is inactive pending
+review. Shared `.env`, APP_KEY, storage and MySQL credentials stay on Hostinger.
 
 Five releases and ten database backups are retained. Database restoration is
 manual because an automatic restore could delete orders placed after a release.

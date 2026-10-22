@@ -12,14 +12,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
-        with: {php-version: '8.2', coverage: none, tools: composer:v2}
+        with: {php-version: '8.2', coverage: none, tools: composer:v2, extensions: gd}
       - uses: actions/setup-node@v4
         with: {node-version: '22', cache: npm, cache-dependency-path: backend/package-lock.json}
+      - run: bash -n scripts/activate-release.sh && bash -n scripts/activate-test-release.sh
       - run: composer install --no-interaction --prefer-dist
       - run: cp .env.example .env && php artisan key:generate && touch database/database.sqlite
       - run: php artisan migrate --force
         env: {DB_CONNECTION: sqlite, DB_DATABASE: database/database.sqlite}
       - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck:pos
       - run: npm run build
       - run: vendor/bin/pint --test
       - run: vendor/bin/phpstan analyse --memory-limit=1G

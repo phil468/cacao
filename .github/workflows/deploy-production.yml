@@ -16,7 +16,7 @@ jobs:
         with:
           ref: '${{ github.event.workflow_run.head_sha || github.sha }}'
       - uses: shivammathur/setup-php@v2
-        with: {php-version: '8.2', coverage: none}
+        with: {php-version: '8.2', coverage: none, extensions: gd}
       - uses: actions/setup-node@v4
         with: {node-version: '22'}
       - working-directory: backend
@@ -25,7 +25,7 @@ jobs:
         run: npm ci --no-audit --no-fund
       - working-directory: backend
         run: npm run build
-      - run: tar --exclude='.env' --exclude='node_modules' --exclude='storage/logs/*' -czf backend.tar.gz -C backend .
+      - run: tar --exclude='.env*' --exclude='*.sqlite*' --exclude='node_modules' --exclude='storage' --exclude='bootstrap/cache/*.php' -czf backend.tar.gz -C backend .
       - uses: webfactory/ssh-agent@v0.9.0
         with: {ssh-private-key: '${{ secrets.HOSTINGER_SSH_KEY }}'}
       - name: Trust the Hostinger SSH host key

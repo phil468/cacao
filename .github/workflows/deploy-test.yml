@@ -17,6 +17,8 @@ jobs:
       - name: Test backend
         working-directory: backend
         run: |
+          bash -n scripts/activate-release.sh
+          bash -n scripts/activate-test-release.sh
           composer install --prefer-dist --no-interaction
           cp .env.example .env
           php artisan key:generate
