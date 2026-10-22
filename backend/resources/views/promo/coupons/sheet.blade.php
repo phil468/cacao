@@ -4,12 +4,14 @@ body { margin: 0; font-family: 'DejaVu Sans', sans-serif; color: {{ $settings['i
 .sheet { position: relative; width: 210mm; height: 296mm; page-break-after: always; }
 .sheet:last-child { page-break-after: auto; }
 .coupon { position: absolute; width: {{ $settings['width'] }}mm; height: {{ $settings['height'] }}mm; box-sizing: border-box; text-align: center; background: {{ $settings['paper'] }}; }
-.logo { position:absolute; left:3.5mm; top:1.5mm; width:23mm; height:9mm; object-fit:contain; }
+.logo { position:absolute; left:{{ $logoLayout['left'] }}mm; top:{{ $logoLayout['top'] }}mm; width:{{ $logoLayout['width'] }}mm; height:{{ $logoLayout['height'] }}mm; }
+.gold-frame { position:absolute; left:.8mm; top:.8mm; width:28.4mm; height:48.4mm; border:.2mm solid #b49349; box-sizing:border-box; }
+.gold-rule { position:absolute; left:10mm; top:10.5mm; width:10mm; border-top:.35mm solid #b49349; }
 .title { position:absolute; left:2mm; top:11mm; width:26mm; font-size:5.5pt; font-weight:bold; letter-spacing:.3pt; line-height:1.2; }
 .code { position:absolute; left:0; top:16mm; width:30mm; font-family:'DejaVu Sans Mono',monospace; font-size:13pt; font-weight:bold; }
 .qr { position:absolute; left:5mm; top:22mm; width:20mm; height:20mm; }
 .url { position:absolute; left:0; top:42mm; width:30mm; font-size:4.5pt; }
-.date { position:absolute; left:0; top:45mm; width:30mm; font-size:7.5pt; font-weight:bold; color:{{ $settings['accent'] }}; }
+.date { position:absolute; left:0; top:45mm; width:30mm; font-size:7.5pt; font-weight:bold; color:#896b2d; }
 .back .title { top:4mm; font-size:8pt; }
 .steps { position:absolute; left:2mm; top:16mm; width:26mm; }
 .back p { font-size:6.5pt; line-height:1.35; margin:1mm 0; }
@@ -28,7 +30,9 @@ body { margin: 0; font-family: 'DejaVu Sans', sans-serif; color: {{ $settings['i
     $y = $settings['top'] + intdiv($index, 6) * ($settings['height'] + $settings['gap']);
 @endphp
 <div class="coupon {{ $side === 'back' ? 'back' : '' }}" style="left:{{ $x }}mm;top:{{ $y }}mm;">
+    <div class="gold-frame"></div>
     @if($side === 'front')
+        <div class="gold-rule"></div>
         <img class="logo" src="{{ $logo }}" alt="Cacao del Perú"><div class="title">SORTEO DE ANIVERSARIO</div>
         <div class="code">{{ $item['code'] }}</div><img class="qr" src="{{ $item['qr'] }}" alt="QR">
         <div class="url">{{ $displayUrl }}</div><div class="date">{{ $drawLabel }}</div>

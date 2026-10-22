@@ -48,9 +48,21 @@ class PromotionExportService
         $items = $codes->map(fn ($code): array => ['code' => $code->code, 'qr' => $side === 'front' ? (new QRCode($options))->render(route('promo', ['code' => $code->code])) : null])->all();
         $pages = array_chunk($items, 30);
         $settings = config('promotions.print');
+        $logoPath = public_path('images/brand/cacao-del-peru-logo.png');
+        $logoSize = getimagesize($logoPath);
+        if ($logoSize === false || $logoSize[0] < 1 || $logoSize[1] < 1) {
+            throw new \RuntimeException('The coupon logo must be a valid image.');
+        }
+        [$sourceWidth, $sourceHeight] = $logoSize;
+        // Dompdf does not support object-fit. Fit inside the original logo area
+        // using the intrinsic aspect ratio instead of stretching both dimensions.
+        $scale = min(23 / $sourceWidth, 9 / $sourceHeight);
+        $logoWidth = $sourceWidth * $scale;
+        $logoHeight = $sourceHeight * $scale;
         $pdf = Pdf::loadView('promo.coupons.sheet', [
             'pages' => $pages, 'side' => $side, 'settings' => $settings,
-            'logo' => 'data:image/png;base64,'.base64_encode((string) file_get_contents(public_path('images/brand/cacao-del-peru-logo.png'))),
+            'logo' => 'data:image/png;base64,'.base64_encode((string) file_get_contents($logoPath)),
+            'logoLayout' => ['width' => $logoWidth, 'height' => $logoHeight, 'left' => (30 - $logoWidth) / 2, 'top' => 1.5 + (9 - $logoHeight) / 2],
             'displayUrl' => parse_url(route('promo'), PHP_URL_HOST).'/promo',
             'drawLabel' => str_replace('.', '', mb_strtoupper(Carbon::parse($batch->promotion->draw_at)->timezone('America/Lima')->locale('es')->translatedFormat('d M'))),
         ])->setPaper('a4')->setOptions(['isRemoteEnabled' => false, 'dpi' => 300, 'defaultFont' => 'DejaVu Sans']);
