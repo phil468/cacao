@@ -6,10 +6,11 @@
 ])
 
 @section('content')
-<section>
+<section class="store-catalog">
     <span class="eyebrow">CATÁLOGO</span>
     <h1>Elige tu presentación favorita</h1>
     <p>Explora sabores y presentaciones disponibles. Cada tarjeta corresponde a una variante que puedes comprar.</p>
+    <details class="store-filter-panel" @if(request()->hasAny(['q', 'category', 'cacao', 'min_price', 'max_price', 'availability'])) open @endif><summary>Filtrar productos <span>{{ $variants->total() }} presentaciones</span></summary>
     <form class="catalog-filters" action="{{ route('catalog') }}" method="get">
         <label>Buscar<input name="q" value="{{ request('q') }}" placeholder="Producto, sabor o SKU"></label>
         <label>Categoría<select name="category"><option value="">Todas</option>@foreach($categories as $category)<option value="{{ $category->slug }}" @selected($selectedCategory === $category->slug)>{{ $category->name }}</option>@endforeach</select></label>
@@ -19,6 +20,8 @@
         <label class="check-field"><input name="availability" type="checkbox" value="in_stock" @checked(request('availability') === 'in_stock')> Solo disponibles</label>
         <button>Aplicar filtros</button><a class="filter-reset" href="{{ route('catalog') }}">Limpiar</a>
     </form>
+    </details>
+    <p class="store-results" role="status">{{ $variants->total() }} {{ $variants->total() === 1 ? 'presentación encontrada' : 'presentaciones encontradas' }} · Elige un producto para ver sus detalles.</p>
     <div class="grid variant-catalog-grid">
         @forelse($variants as $variant)
             @php

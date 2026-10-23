@@ -62,7 +62,8 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @yield('head')
 </head>
-<body data-ga-id="{{ $googleAnalyticsId }}">
+<body class="storefront-shell {{ request()->routeIs('home', 'catalog', 'category') ? 'storefront-discovery' : '' }}" data-ga-id="{{ $googleAnalyticsId }}">
+<a class="store-skip-link" href="#store-content">Saltar al contenido</a>
 <div class="announcement">Desde Ica para el Perú · Cacao peruano seleccionado</div>
 <header class="site-header">
     <a class="brand" href="{{ route('home') }}" aria-label="Cacao del Perú"><img src="{{ asset('images/brand/cacao-del-peru-logo.png') }}" alt="Cacao del Perú"></a>
@@ -74,10 +75,13 @@
         @auth
             <div class="account-menu"><button type="button" aria-expanded="false" data-account-toggle>Mi cuenta <span>⌄</span></button><div class="account-dropdown"><a href="{{ route('account.orders.index') }}">Mis pedidos</a><a href="{{ route('account.addresses.index') }}">Direcciones</a><form method="post" action="{{ route('logout') }}">@csrf<button>Salir</button></form></div></div>
         @else<a href="{{ route('login') }}">Ingresar</a>@endauth
-        <a class="cart-link" href="{{ route('cart') }}" data-analytics-event="view_cart">Carrito @if(session('storefront_cart'))({{ array_sum(session('storefront_cart')) }})@endif</a>
     </nav>
+    <a class="cart-link store-cart" href="{{ route('cart') }}" data-analytics-event="view_cart"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M6 7h12l2 14H4L6 7ZM9 8V6a3 3 0 0 1 6 0v2"/></svg><span>Carrito @if(session('storefront_cart'))({{ array_sum(session('storefront_cart')) }})@endif</span></a>
 </header>
-<main>@yield('content')</main>
+@if(request()->routeIs('home', 'catalog', 'category'))
+<form class="store-search" action="{{ route('catalog') }}" method="get" role="search"><label for="store-search-input">Encuentra tu próximo favorito</label><div><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><input id="store-search-input" name="q" type="search" value="{{ is_string(request('q')) ? request('q') : '' }}" placeholder="Busca chocolates, sabores, cacao…" maxlength="100"><button type="submit">Buscar</button></div></form>
+@endif
+<main id="store-content" tabindex="-1">@yield('content')</main>
 <footer><img src="{{ asset('images/brand/cacao-del-peru-logo-white.png') }}" alt="Cacao del Perú"><div><p>Chocolate peruano con entrega en Ica.</p><p><a href="{{ route('local.chocolates') }}">Comprar chocolates en Ica</a> · <a href="{{ route('contact') }}">Contacto</a></p><small>© {{ date('Y') }} cacaodelperu.com · Ica, Perú</small></div></footer>
 @if(config('services.whatsapp.number'))<a class="whatsapp-float" href="https://wa.me/{{ preg_replace('/\D+/', '', config('services.whatsapp.number')) }}?text={{ urlencode(config('services.whatsapp.message')) }}" target="_blank" rel="noopener noreferrer" aria-label="Chatear con Cacao del Perú por WhatsApp" data-analytics-event="contact" data-analytics-method="whatsapp"><span>WhatsApp</span><img src="{{ asset('images/icons/whatsapp.svg') }}" alt=""></a>@endif
 @if($googleAnalyticsId)

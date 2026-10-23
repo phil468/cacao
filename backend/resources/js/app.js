@@ -2,6 +2,22 @@ import axios from 'axios';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
+// Missing local/catalog assets must not leave empty or broken featured cards.
+document.querySelectorAll('.store-featured-image').forEach(image => {
+    const showFallback = () => {
+        const fallback = document.createElement('div');
+        fallback.className = 'image';
+        const label = document.createElement('span');
+        label.textContent = 'Cacao del Perú';
+        const name = document.createElement('b');
+        name.textContent = image.alt;
+        fallback.append(label, name);
+        image.replaceWith(fallback);
+    };
+    image.addEventListener('error', showFallback, { once: true });
+    if (image.complete && image.naturalWidth === 0) showFallback();
+});
+
 window.axios = axios;
 window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
 
