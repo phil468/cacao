@@ -23,22 +23,29 @@ class CashShiftService
     /** @param array<string, mixed> $data */
     public function open(array $data, User $actor): int
     {
-        $data = validator($data, ['submission_id' => 'required|uuid', 'location_id' => 'required|integer', 'opening_cash' => 'required|integer|min:0|max:1000000000'])->validate();
+        $data = validator($data, ['submission_id' => 'required|uuid', 'location_id' => 'required|integer', 'opening_cash' => 'required|integer|min:0|max:1000000000',
+            'pending_yesterday' => 'sometimes|boolean', 'reason' => 'required_if:pending_yesterday,true|nullable|string|min:5|max:1000'])->validate();
+        $pending = (bool) ($data['pending_yesterday'] ?? false);
+        abort_if($pending && (! $actor->hasRole('administrator') || ! $actor->can('orders.manage')), 403);
+        $date = $pending ? now()->subDay()->toDateString() : now()->toDateString();
         $location = app(PosAccess::class)->location($actor, (int) $data['location_id']);
 
-        return DB::transaction(function () use ($data, $actor, $location): int {
+        return DB::transaction(function () use ($data, $actor, $location, $pending, $date): int {
             User::whereKey($actor->id)->lockForUpdate()->firstOrFail();
             InventoryLocation::whereKey($location->id)->lockForUpdate()->firstOrFail();
             $existing = DB::table('cash_shifts')->where('submission_id', $data['submission_id'])->first();
             if ($existing) {
                 abort_unless((int) $existing->user_id === $actor->id, 403);
-                if ((int) $existing->inventory_location_id !== $location->id || (int) $existing->opening_cash !== (int) $data['opening_cash']) {
+                if ((int) $existing->inventory_location_id !== $location->id || (int) $existing->opening_cash !== (int) $data['opening_cash'] || ($existing->pending_day_reason !== null) !== $pending || ($pending && $existing->pending_day_reason !== trim($data['reason']))) {
                     throw new ConflictHttpException('La apertura ya fue registrada con otros datos.');
                 }
 
                 return (int) $existing->id;
             }
             $this->assertDayOpen($location->id);
+            if ($pending) {
+                $this->assertPendingDaySafe($location->id, $date);
+            }
             if (DB::table('cash_shifts')->where('active_location_id', $location->id)->orWhere('active_user_id', $actor->id)->exists()) {
                 throw ValidationException::withMessages(['shift' => 'Ya hay un turno abierto en este punto o para este cajero. Ciérralo antes de abrir otro.']);
             }
@@ -47,7 +54,8 @@ class CashShiftService
             }
 
             return DB::table('cash_shifts')->insertGetId(['submission_id' => $data['submission_id'], 'inventory_location_id' => $location->id, 'user_id' => $actor->id,
-                'active_location_id' => $location->id, 'active_user_id' => $actor->id, 'opening_cash' => (int) $data['opening_cash'], 'opened_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+                'active_location_id' => $location->id, 'active_user_id' => $actor->id, 'opening_cash' => (int) $data['opening_cash'], 'business_date' => $date,
+                'pending_day_reason' => $pending ? trim($data['reason']) : null, 'opened_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
         }, 5);
     }
 
@@ -59,11 +67,42 @@ class CashShiftService
         if (! $shift) {
             throw ValidationException::withMessages(['shift' => 'Abre tu turno de caja en este punto antes de registrar la venta.']);
         }
+        if ($shift->pending_day_reason !== null) {
+            abort_unless($actor->hasRole('administrator') && $actor->can('orders.manage'), 403);
+            $this->assertPendingDaySafe($location->id, $shift->business_date, (int) $shift->id);
+
+            return (int) $shift->id;
+        }
         if (substr((string) $shift->opened_at, 0, 10) !== now()->toDateString()) {
             throw ValidationException::withMessages(['shift' => 'Cierra el turno pendiente del día anterior y abre uno de hoy.']);
         }
 
         return (int) $shift->id;
+    }
+
+    /** Caller holds the inventory-location lock. Audit timestamps are never backdated. */
+    public function assertPendingDaySafe(int $locationId, string $date, ?int $shiftId = null): void
+    {
+        $today = now()->toDateString();
+        $invalid = $date !== now()->subDay()->toDateString()
+            || Order::where('inventory_location_id', $locationId)->where('is_historical', true)->whereDate('sold_on', $date)->exists()
+            || DB::table('inventory_closings')->where('inventory_location_id', $locationId)->where('business_date', '>=', $date)->exists()
+            || DB::table('cash_shifts')->where('inventory_location_id', $locationId)->when($shiftId, fn ($q) => $q->where('id', '!=', $shiftId))
+                ->where(function ($q) use ($date, $today): void {
+                    $q->whereDate('opened_at', '>=', $today)->orWhere('business_date', '>=', $today)
+                        ->orWhere(function ($q) use ($date): void {
+                            $q->whereRaw('DATE(COALESCE(business_date, opened_at)) = ?', [$date])->whereNotNull('closed_at');
+                        });
+                })->exists();
+        // Prior stock changes today (transfers, counts, gifts, returns, sales) need review.
+        // Only sales belonging to this pending shift may accumulate during regularization.
+        $movements = DB::table('inventory_movements')->where('inventory_location_id', $locationId)->whereDate('created_at', '>=', $today);
+        if ($shiftId !== null) {
+            $movements->where(fn ($q) => $q->where('type', '!=', 'sale')->orWhereNull('order_id')->orWhereNotIn('order_id', Order::where('cash_shift_id', $shiftId)->select('id')));
+        }
+        if ($invalid || $movements->exists()) {
+            throw ValidationException::withMessages(['shift' => 'No se puede registrar la jornada de ayer: debe seguir sin cierre, sin ventas históricas ya ingresadas de esa fecha y no puede haber turnos, conteos ni movimientos posteriores de hoy. Revisa el historial.']);
+        }
     }
 
     public function authorized(int $id, User $actor): stdClass
@@ -101,7 +140,8 @@ class CashShiftService
         }
 
         return ['id' => $id, 'cashier_id' => (int) $shift->user_id, 'cashier' => User::find($shift->user_id)->name ?? 'Usuario anterior',
-            'opened_at' => $shift->opened_at, 'closed_at' => null, 'opening_cash' => (int) $shift->opening_cash, 'methods' => $rows,
+            'opened_at' => $shift->opened_at, 'business_date' => $shift->business_date ?? substr((string) $shift->opened_at, 0, 10), 'pending_day_reason' => $shift->pending_day_reason,
+            'closed_at' => null, 'opening_cash' => (int) $shift->opening_cash, 'methods' => $rows,
             'sales_count' => Order::where('cash_shift_id', $id)->count(), 'sales_total' => (int) Order::where('cash_shift_id', $id)->sum('total_amount'),
             'discount_total' => (int) Order::where('cash_shift_id', $id)->sum('discount_amount'), 'entries' => $entries->map(fn ($entry): array => (array) $entry)->all()];
     }

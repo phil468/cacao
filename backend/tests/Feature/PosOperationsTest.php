@@ -58,6 +58,79 @@ beforeEach(function () {
     $this->historical = [...$this->sale, 'pos_submission_id' => (string) Str::uuid(), 'is_historical' => true, 'sold_on' => now()->subDays(2)->toDateString(), 'historical_reason' => 'Regularización de venta antigua', 'items' => [['variant_id' => $this->variant->id, 'quantity' => 2, 'unit_price_amount' => 1500]]];
 });
 
+it('registers yesterday pending sales in yesterday cash and current stock with real audit timestamps', function () {
+    DB::table('cash_shifts')->delete(); // Remove the empty fixture shift, never a business record.
+    $opening = [...$this->opening, 'pending_yesterday' => true, 'reason' => 'Ventas de ayer no ingresadas'];
+    $this->shift = app(CashShiftService::class)->open($opening, $this->manager);
+    expect(app(CashShiftService::class)->open($opening, $this->manager))->toBe($this->shift);
+    $order = app(PointOfSaleService::class)->sell($this->sale, $this->manager);
+    $second = app(PointOfSaleService::class)->sell([...$this->sale, 'pos_submission_id' => (string) Str::uuid()], $this->manager);
+    expect($order->sold_on->toDateString())->toBe(now()->subDay()->toDateString())
+        ->and($order->created_at->toDateString())->toBe(now()->toDateString())
+        ->and($order->is_historical)->toBeFalse()->and($order->cash_shift_id)->toBe($this->shift)
+        ->and(LocationStock::first()->quantity)->toBe(8);
+    $summary = app(CashShiftService::class)->summary($this->shift, $this->manager);
+    expect($summary['methods'][0]['expected'])->toBe(5000);
+    $yesterday = app(PosDailyReportService::class)->build($this->point->id, now()->subDay()->toDateString(), $this->manager);
+    expect($yesterday['sales_count'])->toBe(2)->and($yesterday['shifts']->count())->toBe(1);
+    expect(app(PosDailyReportService::class)->build($this->point->id, now()->toDateString(), $this->manager)['sales_count'])->toBe(0);
+    opsClose($this);
+    expect(app(PointOfSaleService::class)->sell($this->sale, $this->manager)->id)->toBe($order->id);
+    expect(fn () => app(CashShiftService::class)->open([...$opening, 'submission_id' => (string) Str::uuid()], $this->manager))->toThrow(ValidationException::class);
+    $today = app(CashShiftService::class)->open([...$this->opening, 'submission_id' => (string) Str::uuid()], $this->manager);
+    expect($today)->not->toBe($this->shift)->and($second->cash_shift_id)->toBe($this->shift);
+});
+
+it('blocks a pending yesterday shift after any today shift even if closed', function () {
+    opsClose($this);
+    expect(fn () => app(CashShiftService::class)->open([...$this->opening, 'submission_id' => (string) Str::uuid(), 'pending_yesterday' => true, 'reason' => 'Ventas pendientes de ayer'], $this->manager))->toThrow(ValidationException::class);
+});
+
+it('blocks yesterday regularization for sellers and requires an audit reason', function () {
+    DB::table('cash_shifts')->delete();
+    expect(fn () => app(CashShiftService::class)->open([...$this->opening, 'pending_yesterday' => true, 'reason' => 'Ventas pendientes'], $this->seller))->toThrow(HttpException::class);
+    expect(fn () => app(CashShiftService::class)->open([...$this->opening, 'pending_yesterday' => true], $this->manager))->toThrow(ValidationException::class);
+});
+
+it('blocks a confirmed yesterday close and an inventory count today', function () {
+    DB::table('cash_shifts')->where('id', $this->shift)->update(['business_date' => now()->subDay()->toDateString(), 'opened_at' => now()->subDay()]);
+    opsClose($this);
+    $opening = [...$this->opening, 'submission_id' => (string) Str::uuid(), 'pending_yesterday' => true, 'reason' => 'Ventas pendientes de ayer'];
+    expect(fn () => app(CashShiftService::class)->open($opening, $this->manager))->toThrow(ValidationException::class);
+    DB::table('cash_shifts')->delete();
+    app(PosInventoryOperationsService::class)->close(opsCount($this), $this->manager);
+    expect(fn () => app(CashShiftService::class)->open($opening, $this->manager))->toThrow(ValidationException::class);
+});
+
+it('blocks pending sales after a subsequent stock operation without partial writes', function () {
+    DB::table('cash_shifts')->delete();
+    app(CashShiftService::class)->open([...$this->opening, 'pending_yesterday' => true, 'reason' => 'Ventas pendientes de ayer'], $this->manager);
+    app(PosInventoryOperationsService::class)->record(opsOut($this), $this->manager);
+    expect(fn () => app(PointOfSaleService::class)->sell($this->sale, $this->manager))->toThrow(ValidationException::class);
+    expect(Order::count())->toBe(0)->and(LocationStock::first()->quantity)->toBe(9);
+});
+
+it('never permits negative stock or pending sales older than yesterday', function () {
+    DB::table('cash_shifts')->delete();
+    $this->shift = app(CashShiftService::class)->open([...$this->opening, 'pending_yesterday' => true, 'reason' => 'Ventas pendientes de ayer'], $this->manager);
+    LocationStock::first()->update(['quantity' => 0]);
+    expect(fn () => app(PointOfSaleService::class)->sell($this->sale, $this->manager))->toThrow(ConflictHttpException::class);
+    $this->travel(1)->days();
+    expect(fn () => app(PointOfSaleService::class)->sell($this->sale, $this->manager))->toThrow(ValidationException::class);
+    $this->travelBack();
+    expect(Order::count())->toBe(0);
+});
+
+it('blocks opening yesterday after a stock movement today or an existing historical sale', function () {
+    DB::table('cash_shifts')->delete();
+    $opening = [...$this->opening, 'pending_yesterday' => true, 'reason' => 'Ventas pendientes de ayer'];
+    app(PosInventoryOperationsService::class)->record(opsOut($this), $this->manager);
+    expect(fn () => app(CashShiftService::class)->open($opening, $this->manager))->toThrow(ValidationException::class);
+    DB::table('inventory_movements')->delete();
+    app(PointOfSaleService::class)->sell([...$this->historical, 'sold_on' => now()->subDay()->toDateString()], $this->manager);
+    expect(fn () => app(CashShiftService::class)->open($opening, $this->manager))->toThrow(ValidationException::class);
+});
+
 function opsClose(object $test): array
 {
     $summary = app(CashShiftService::class)->summary($test->shift, $test->manager);

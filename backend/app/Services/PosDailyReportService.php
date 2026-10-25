@@ -26,7 +26,7 @@ class PosDailyReportService
                 $methods[$key] = ($methods[$key] ?? 0) + $payment['amount'];
             }
         }
-        $shifts = DB::table('cash_shifts')->join('users', 'users.id', '=', 'cash_shifts.user_id')->where('inventory_location_id', $location->id)->whereDate('opened_at', $date)
+        $shifts = DB::table('cash_shifts')->join('users', 'users.id', '=', 'cash_shifts.user_id')->where('inventory_location_id', $location->id)->whereRaw('DATE(COALESCE(business_date, opened_at)) = ?', [$date])
             ->select('cash_shifts.*', 'users.name as cashier')->orderBy('cash_shifts.id')->get()->map(function ($row) {
                 $row->closing_snapshot = $row->closing_snapshot ? json_decode($row->closing_snapshot, true, 512, JSON_THROW_ON_ERROR) : null;
 

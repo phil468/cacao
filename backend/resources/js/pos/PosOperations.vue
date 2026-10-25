@@ -3,9 +3,10 @@ import {computed, onBeforeUnmount, ref, watch} from 'vue';
 import {api, ApiError} from './api';
 import {money, units} from './operations';
 import type {OperationsState, Shift} from './operations';
-const props = defineProps<{locationId: number; state: OperationsState; refreshing: boolean; user: {id: number; can_discount: boolean; can_inventory: boolean}; methods: {id: number; name: string; code: string}[]}>();
+const props = defineProps<{locationId: number; state: OperationsState; refreshing: boolean; user: {id: number; can_discount: boolean; can_inventory: boolean; can_historical: boolean}; methods: {id: number; name: string; code: string}[]}>();
 const emit = defineEmits<{refresh: []; message: [text: string]; error: [text: string]; lock: [value: boolean]}>();
 const tab = ref('shift'), search = ref(''), busy = ref(false), opening = ref('0'), reason = ref('');
+const pendingYesterday = ref(false), pendingDayReason = ref('');
 const counted = ref<Record<number, string>>({}), quantities = ref<Record<number, number>>({}), physical = ref<Record<number, string>>({}), held = ref<Record<number, string>>({});
 const minimums = ref<Record<number, number>>({}), targets = ref<Record<number, number>>({}), requestQuantities = ref<Record<number, number>>({});
 const restockView = ref<'request' | 'settings'>('request');
@@ -35,6 +36,7 @@ async function confirm() {
     try {
         const result = await api<Record<string, unknown>>(pending.value!.path, {method:'POST', body:JSON.stringify(pending.value!.payload)});
         if (pending.value!.path.endsWith('/close')) lastClose.value = result as unknown as Shift;
+        if (pending.value!.path === 'operations/shifts') { pendingYesterday.value = false; pendingDayReason.value = ''; }
         emit('message', `${pending.value!.title}: registrado correctamente.`); pending.value = null; review.value = null; reason.value = ''; emit('refresh');
     } catch(e) {
         if (e instanceof ApiError && [400,401,403,404,409,422].includes(e.status)) pending.value = null;
@@ -43,7 +45,8 @@ async function confirm() {
 }
 function prepareOpen() {
     const amount = units(opening.value); if (!Number.isSafeInteger(amount)) return emit('error','Ingresa un fondo inicial válido.');
-    show('operations/shifts', {submission_id:crypto.randomUUID(), location_id:props.locationId, opening_cash:amount}, 'Abrir turno', [`Fondo inicial: ${money(amount)}.`, 'El cajero responsable será tu usuario.']);
+    if (pendingYesterday.value && pendingDayReason.value.trim().length < 5) return emit('error','Explica el motivo del registro pendiente (mínimo 5 caracteres).');
+    show('operations/shifts', {submission_id:crypto.randomUUID(), location_id:props.locationId, opening_cash:amount, ...(pendingYesterday.value ? {pending_yesterday:true,reason:pendingDayReason.value.trim()} : {})}, pendingYesterday.value ? 'Abrir jornada pendiente de ayer' : 'Abrir turno de hoy', [`Fondo inicial: ${money(amount)}.`, pendingYesterday.value ? 'Las ventas afectarán la caja de ayer y descontarán stock actual. Solo si ayer no tuvo cierre y hoy no hubo caja, conteo ni movimientos de inventario.' : 'El cajero responsable será tu usuario.', ...(pendingYesterday.value ? [pendingDayReason.value.trim()] : [])]);
 }
 function prepareClose() {
     if (!props.state.shift) return;
@@ -98,8 +101,8 @@ async function loadReport() {busy.value=true;try{report.value=await api<Report>(
  <button v-if="pending" class="primary" :disabled="busy" @click="confirm">{{busy?'Registrando…':'Reintentar la misma operación'}}</button>
  <fieldset v-if="!review" :disabled="locked">
  <section v-if="tab==='shift'">
-  <template v-if="!state.shift"><p v-if="state.other_shift_open">Otro cajero tiene el turno abierto. Debe cerrarlo antes del relevo.</p><form v-else-if="!state.day_closed" @submit.prevent="prepareOpen"><label>Fondo inicial en efectivo (S/)<input v-model="opening" type="number" min="0" step="0.01" required /></label><button class="primary">Revisar apertura de turno</button></form></template>
-  <template v-else><h3>Turno #{{state.shift.id}} · {{state.shift.cashier}}</h3><p>Apertura: {{state.shift.opened_at}}. Ventas: {{state.shift.sales_count}} · {{money(state.shift.sales_total)}}. Descuentos: {{money(state.shift.discount_total)}}.</p>
+  <template v-if="!state.shift"><p v-if="state.other_shift_open">Otro cajero tiene el turno abierto. Debe cerrarlo antes del relevo.</p><form v-else-if="!state.day_closed" @submit.prevent="prepareOpen"><label v-if="user.can_historical" class="check"><input v-model="pendingYesterday" type="checkbox" /> Registrar jornada pendiente de ayer (afecta caja e inventario)</label><template v-if="pendingYesterday"><p class="proof-warning">Primero completa y cierra ayer. No debe haber caja ni movimientos de inventario hoy. No se reabren cierres confirmados.</p><label>Motivo del registro pendiente<textarea v-model="pendingDayReason" minlength="5" maxlength="1000" required /></label></template><label>Fondo inicial en efectivo (S/)<input v-model="opening" type="number" min="0" step="0.01" required /></label><button class="primary">Revisar apertura de turno</button></form></template>
+  <template v-else><h3>Turno #{{state.shift.id}} · {{state.shift.cashier}}</h3><p>Jornada: {{state.shift.business_date ?? state.shift.opened_at.slice(0,10)}}. Registrada: {{state.shift.opened_at}}. Ventas: {{state.shift.sales_count}} · {{money(state.shift.sales_total)}}. Descuentos: {{money(state.shift.discount_total)}}.</p>
    <p>Cuenta el efectivo físico, incluido el fondo. Para Yape y bancos verifica el movimiento neto cobrado, no el saldo total de la cuenta.</p>
    <form @submit.prevent="prepareClose"><article v-for="method in state.shift.methods" :key="method.payment_method_id" class="operation-row"><strong>{{method.name}}</strong><p>Fondo {{money(method.opening)}} + ventas {{money(method.sales)}} + entradas {{money(method.incoming)}} − salidas/reembolsos {{money(method.outgoing)}} = {{money(method.expected)}}</p><label>{{method.code==='pos_cash'?'Efectivo contado':'Cobros netos verificados'}} (S/)<input v-model="counted[method.payment_method_id]" type="number" :min="method.code==='pos_cash'?0:undefined" step="0.01" required /></label></article><label>Observación del cierre<textarea v-model="reason" minlength="5" maxlength="1000" required /></label><button class="primary">Revisar cierre de turno</button></form>
    <details><summary>Entrada, retiro o reembolso de dinero</summary><form @submit.prevent="prepareEntry"><label>Movimiento<select v-model="entryKind"><option value="in">Entrada de efectivo</option><option value="out">Retiro de efectivo</option><option v-if="user.can_discount" value="refund">Reembolso de devolución</option></select></label><label>Medio<select v-model="entryMethod" required><option v-for="method in methods.filter(m=>entryKind==='refund'||m.code==='pos_cash')" :key="method.id" :value="String(method.id)">{{method.name}}</option></select></label><label v-if="entryKind==='refund'">ID del pedido con devolución registrada<input v-model="refundOrder" type="number" min="1" required /></label><label>Importe (S/)<input v-model="entryAmount" type="number" min="0.01" step="0.01" required /></label><label>Motivo<textarea v-model="reason" minlength="5" maxlength="1000" required /></label><button>Revisar movimiento de caja</button></form></details>

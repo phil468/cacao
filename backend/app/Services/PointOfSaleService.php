@@ -89,6 +89,7 @@ class PointOfSaleService
                 }
             }
             $shiftId = $historical ? null : app(CashShiftService::class)->forSale($stockLocation, $cashier);
+            $shiftDate = $shiftId ? DB::table('cash_shifts')->where('id', $shiftId)->value('business_date') : null;
             $proofDisk = 'local';
             $lines = $historical ? $this->lines->prepareHistorical($data['items']) : $this->lines->prepare($data['items'], $stockLocation);
             $subtotal = array_sum(array_column($lines, 3));
@@ -102,7 +103,7 @@ class PointOfSaleService
                 'inventory_location_id' => $stockLocation->id, 'payment_proof_disk' => $proofDisk,
                 'payment_proof_missing' => $proofMissing,
                 'pos_submission_id' => $data['pos_submission_id'], 'payment_confirmed_at' => $historical ? null : now(),
-                'is_historical' => $historical, 'sold_on' => $historical ? $data['sold_on'] : now()->toDateString(),
+                'is_historical' => $historical, 'sold_on' => $historical ? $data['sold_on'] : ($shiftDate ?? now()->toDateString()),
                 'historical_reason' => $historical ? trim($data['historical_reason']) : null, 'cash_shift_id' => $shiftId,
                 'customer_name' => $data['customer_name'], 'customer_email' => $data['customer_email'] ?? '', 'customer_phone' => $data['customer_phone'] ?? '',
                 'order_status_id' => $status->id, 'payment_method_id' => $firstPayment['payment_method_id'], 'payment_proof_path' => $firstPayment['proof_path'],
