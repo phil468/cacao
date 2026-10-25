@@ -83,6 +83,27 @@ class CashShiftService
     /** Caller holds the inventory-location lock. Audit timestamps are never backdated. */
     public function assertPendingDaySafe(int $locationId, string $date, ?int $shiftId = null): void
     {
+        $this->assertPendingDayContext($locationId, $date, $shiftId);
+        $confirmedTransfers = DB::table('transfer_receipt_confirmations as receipt')
+            ->join('inventory_transfers as transfer', 'transfer.id', '=', 'receipt.inventory_transfer_id')
+            ->join('inventory_locations as source', 'source.id', '=', 'transfer.from_location_id')
+            ->where('receipt.received_on', $date)->where('transfer.to_location_id', $locationId)->where('source.kind', 'central')
+            ->whereDate('transfer.created_at', now()->toDateString())->select('transfer.id');
+        $movements = DB::table('inventory_movements')->where('inventory_location_id', $locationId)->whereDate('created_at', '>=', now()->toDateString())
+            ->where(function ($q) use ($confirmedTransfers): void {
+                $q->where('type', '!=', 'transfer_in')->orWhereNull('inventory_transfer_id')->orWhereNotIn('inventory_transfer_id', $confirmedTransfers);
+            });
+        if ($shiftId !== null) {
+            $movements->where(fn ($q) => $q->where('type', '!=', 'sale')->orWhereNull('order_id')->orWhereNotIn('order_id', Order::where('cash_shift_id', $shiftId)->select('id')));
+        }
+        if ($movements->exists()) {
+            throw ValidationException::withMessages(['shift' => 'Hay movimientos de inventario de hoy. Si son entradas desde central recibidas ayer, confirma su recepción real en Turno y caja. Las demás salidas o ajustes requieren revisión.']);
+        }
+    }
+
+    /** Shared prerequisites; caller holds the point lock. */
+    public function assertPendingDayContext(int $locationId, string $date, ?int $shiftId = null): void
+    {
         $today = now()->toDateString();
         $invalid = $date !== now()->subDay()->toDateString()
             || Order::where('inventory_location_id', $locationId)->where('is_historical', true)->whereDate('sold_on', $date)->exists()
@@ -94,13 +115,7 @@ class CashShiftService
                             $q->whereRaw('DATE(COALESCE(business_date, opened_at)) = ?', [$date])->whereNotNull('closed_at');
                         });
                 })->exists();
-        // Prior stock changes today (transfers, counts, gifts, returns, sales) need review.
-        // Only sales belonging to this pending shift may accumulate during regularization.
-        $movements = DB::table('inventory_movements')->where('inventory_location_id', $locationId)->whereDate('created_at', '>=', $today);
-        if ($shiftId !== null) {
-            $movements->where(fn ($q) => $q->where('type', '!=', 'sale')->orWhereNull('order_id')->orWhereNotIn('order_id', Order::where('cash_shift_id', $shiftId)->select('id')));
-        }
-        if ($invalid || $movements->exists()) {
+        if ($invalid) {
             throw ValidationException::withMessages(['shift' => 'No se puede registrar la jornada de ayer: debe seguir sin cierre, sin ventas históricas ya ingresadas de esa fecha y no puede haber turnos, conteos ni movimientos posteriores de hoy. Revisa el historial.']);
         }
     }

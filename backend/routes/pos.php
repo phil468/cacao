@@ -19,6 +19,7 @@ Route::prefix('pos/api')->group(function (): void {
         Route::get('operations', [PosOperationsController::class, 'state']);
         Route::get('operations/report', [PosOperationsController::class, 'report']);
         Route::post('operations/shifts', [PosOperationsController::class, 'open']);
+        Route::post('operations/transfers/{transfer}/received-yesterday', [PosOperationsController::class, 'receivedYesterday'])->whereNumber('transfer')->middleware('throttle:30,1');
         Route::post('operations/shifts/{shift}/close', [PosOperationsController::class, 'close'])->whereNumber('shift');
         Route::post('operations/shifts/{shift}/entries', [PosOperationsController::class, 'entry'])->whereNumber('shift');
         Route::post('operations/stock', [PosOperationsController::class, 'stockOperation']);

@@ -2,11 +2,13 @@
 import {computed, onBeforeUnmount, ref, watch} from 'vue';
 import {api, ApiError} from './api';
 import {money, units} from './operations';
-import type {OperationsState, Shift} from './operations';
+import type {OperationsState, PendingTransfer, Shift} from './operations';
 const props = defineProps<{locationId: number; state: OperationsState; refreshing: boolean; user: {id: number; can_discount: boolean; can_inventory: boolean; can_historical: boolean}; methods: {id: number; name: string; code: string}[]}>();
 const emit = defineEmits<{refresh: []; message: [text: string]; error: [text: string]; lock: [value: boolean]}>();
 const tab = ref('shift'), search = ref(''), busy = ref(false), opening = ref('0'), reason = ref('');
 const pendingYesterday = ref(false), pendingDayReason = ref('');
+const receiptReasons = ref<Record<number,string>>({});
+const yesterday = computed(() => { const date=new Date(props.state.today+'T12:00:00Z'); date.setUTCDate(date.getUTCDate()-1); return date.toISOString().slice(0,10); });
 const counted = ref<Record<number, string>>({}), quantities = ref<Record<number, number>>({}), physical = ref<Record<number, string>>({}), held = ref<Record<number, string>>({});
 const minimums = ref<Record<number, number>>({}), targets = ref<Record<number, number>>({}), requestQuantities = ref<Record<number, number>>({});
 const restockView = ref<'request' | 'settings'>('request');
@@ -46,7 +48,15 @@ async function confirm() {
 function prepareOpen() {
     const amount = units(opening.value); if (!Number.isSafeInteger(amount)) return emit('error','Ingresa un fondo inicial válido.');
     if (pendingYesterday.value && pendingDayReason.value.trim().length < 5) return emit('error','Explica el motivo del registro pendiente (mínimo 5 caracteres).');
-    show('operations/shifts', {submission_id:crypto.randomUUID(), location_id:props.locationId, opening_cash:amount, ...(pendingYesterday.value ? {pending_yesterday:true,reason:pendingDayReason.value.trim()} : {})}, pendingYesterday.value ? 'Abrir jornada pendiente de ayer' : 'Abrir turno de hoy', [`Fondo inicial: ${money(amount)}.`, pendingYesterday.value ? 'Las ventas afectarán la caja de ayer y descontarán stock actual. Solo si ayer no tuvo cierre y hoy no hubo caja, conteo ni movimientos de inventario.' : 'El cajero responsable será tu usuario.', ...(pendingYesterday.value ? [pendingDayReason.value.trim()] : [])]);
+    show('operations/shifts', {submission_id:crypto.randomUUID(), location_id:props.locationId, opening_cash:amount, ...(pendingYesterday.value ? {pending_yesterday:true,reason:pendingDayReason.value.trim()} : {})}, pendingYesterday.value ? 'Abrir jornada pendiente de ayer' : 'Abrir turno de hoy', [`Fondo inicial: ${money(amount)}.`, pendingYesterday.value ? 'Las ventas afectarán la caja de ayer y descontarán stock actual. Solo si ayer no tuvo cierre y hoy no hubo caja ni conteos; las entradas desde central de hoy deben estar confirmadas como recibidas ayer.' : 'El cajero responsable será tu usuario.', ...(pendingYesterday.value ? [pendingDayReason.value.trim()] : [])]);
+}
+function prepareReceipt(transfer:PendingTransfer) {
+    const reason=(receiptReasons.value[transfer.id] ?? '').trim();
+    if (reason.length<5) return emit('error','Explica por qué la recepción de ayer se registró hoy.');
+    show(`operations/transfers/${transfer.id}/received-yesterday`, {location_id:props.locationId,received_on:yesterday.value,reason}, 'Confirmar recepción física de ayer', [
+        `Transferencia #${transfer.id}. Registro original: ${transfer.created_at}. Recepción física: ${yesterday.value}.`,
+        ...transfer.items.map(i=>`${i.name}: ${i.quantity} unidad(es).`),
+        'Confirmo que todos estos productos llegaron físicamente ayer. No se moverá stock otra vez ni se cambiará el registro original. Esta confirmación queda auditada y no se puede sobrescribir.',reason]);
 }
 function prepareClose() {
     if (!props.state.shift) return;
@@ -101,7 +111,15 @@ async function loadReport() {busy.value=true;try{report.value=await api<Report>(
  <button v-if="pending" class="primary" :disabled="busy" @click="confirm">{{busy?'Registrando…':'Reintentar la misma operación'}}</button>
  <fieldset v-if="!review" :disabled="locked">
  <section v-if="tab==='shift'">
-  <template v-if="!state.shift"><p v-if="state.other_shift_open">Otro cajero tiene el turno abierto. Debe cerrarlo antes del relevo.</p><form v-else-if="!state.day_closed" @submit.prevent="prepareOpen"><label v-if="user.can_historical" class="check"><input v-model="pendingYesterday" type="checkbox" /> Registrar jornada pendiente de ayer (afecta caja e inventario)</label><template v-if="pendingYesterday"><p class="proof-warning">Primero completa y cierra ayer. No debe haber caja ni movimientos de inventario hoy. No se reabren cierres confirmados.</p><label>Motivo del registro pendiente<textarea v-model="pendingDayReason" minlength="5" maxlength="1000" required /></label></template><label>Fondo inicial en efectivo (S/)<input v-model="opening" type="number" min="0" step="0.01" required /></label><button class="primary">Revisar apertura de turno</button></form></template>
+  <section v-if="pendingYesterday && !state.shift && user.can_historical && user.can_inventory && state.pending_transfers?.length" class="receipt-confirmations">
+   <h3>¿Registraste hoy productos que recibiste ayer?</h3><p>Confirma solo las transferencias entregadas físicamente el {{yesterday}}. Revisa todos sus productos: no se volverá a sumar stock. Debes confirmar cada entrada pendiente antes de abrir la jornada de ayer.</p>
+   <article v-for="transfer in state.pending_transfers" :key="transfer.id" class="operation-row">
+    <strong>Transferencia #{{transfer.id}}</strong><p>Registrada: {{transfer.created_at}}</p><ul><li v-for="item in transfer.items" :key="item.name">{{item.name}}: {{item.quantity}} unidad(es)</li></ul>
+    <p v-if="transfer.received_on" role="status">Recepción confirmada: {{transfer.received_on}} · Confirmación registrada: {{transfer.confirmed_at}}. Motivo: {{transfer.reason}}</p>
+    <form v-else @submit.prevent="prepareReceipt(transfer)"><label>Motivo de confirmación de la transferencia #{{transfer.id}}<textarea v-model="receiptReasons[transfer.id]" minlength="5" maxlength="1000" required /></label><button type="submit">Revisar recepción de ayer</button></form>
+   </article>
+  </section>
+  <template v-if="!state.shift"><p v-if="state.other_shift_open">Otro cajero tiene el turno abierto. Debe cerrarlo antes del relevo.</p><form v-else-if="!state.day_closed" @submit.prevent="prepareOpen"><label v-if="user.can_historical" class="check"><input v-model="pendingYesterday" type="checkbox" /> Registrar jornada pendiente de ayer (afecta caja e inventario)</label><template v-if="pendingYesterday"><p class="proof-warning">Primero completa y cierra ayer. No debe haber caja, conteos ni salidas hoy. Si hoy registraste entradas desde central que llegaron ayer, confirma su recepción real arriba. No se reabren cierres confirmados.</p><label>Motivo del registro pendiente<textarea v-model="pendingDayReason" minlength="5" maxlength="1000" required /></label></template><label>Fondo inicial en efectivo (S/)<input v-model="opening" type="number" min="0" step="0.01" required /></label><button class="primary">Revisar apertura de turno</button></form></template>
   <template v-else><h3>Turno #{{state.shift.id}} · {{state.shift.cashier}}</h3><p>Jornada: {{state.shift.business_date ?? state.shift.opened_at.slice(0,10)}}. Registrada: {{state.shift.opened_at}}. Ventas: {{state.shift.sales_count}} · {{money(state.shift.sales_total)}}. Descuentos: {{money(state.shift.discount_total)}}.</p>
    <p>Cuenta el efectivo físico, incluido el fondo. Para Yape y bancos verifica el movimiento neto cobrado, no el saldo total de la cuenta.</p>
    <form @submit.prevent="prepareClose"><article v-for="method in state.shift.methods" :key="method.payment_method_id" class="operation-row"><strong>{{method.name}}</strong><p>Fondo {{money(method.opening)}} + ventas {{money(method.sales)}} + entradas {{money(method.incoming)}} − salidas/reembolsos {{money(method.outgoing)}} = {{money(method.expected)}}</p><label>{{method.code==='pos_cash'?'Efectivo contado':'Cobros netos verificados'}} (S/)<input v-model="counted[method.payment_method_id]" type="number" :min="method.code==='pos_cash'?0:undefined" step="0.01" required /></label></article><label>Observación del cierre<textarea v-model="reason" minlength="5" maxlength="1000" required /></label><button class="primary">Revisar cierre de turno</button></form>

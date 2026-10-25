@@ -8,7 +8,7 @@ Administrators with `orders.manage` may select **Registrar jornada pendiente de 
 - A mandatory opening reason and normal opening cash amount are recorded.
 - No confirmed cash shift closure for yesterday, or inventory closure for yesterday or later.
 - No shift opened today at that location, including one already closed.
-- No stock movements today before opening. Subsequent sales from this pending shift are allowed; unrelated stock changes block further pending sales.
+- No stock movements today before opening, except central-to-point inbound transfers explicitly confirmed as physically received yesterday. Subsequent sales from this pending shift are allowed; unrelated stock changes block further pending sales.
 - No existing historical sales for yesterday at that location, to avoid duplicating them through regularization.
 - Existing active-point and active-cashier uniqueness rules still apply.
 
@@ -21,3 +21,9 @@ Close this shift before opening today's shift. Cash counts and discrepancies are
 ## Deployment
 
 Run the additive migration before serving the new backend. No existing balances or shifts are rewritten. Do not roll back the audit columns after a pending-day shift has been recorded.
+
+## Late Transfer Receipts
+
+In **Turno y caja**, select the pending-yesterday option to review today's inbound transfers from central. An administrator with both order and inventory permissions may confirm the entire transfer as physically received yesterday, with a required reason and a separate immutable audit record. The review lists all products and quantities; a partly received transfer is not covered by this workflow.
+
+Confirmation never repeats a transfer or updates its original timestamps or balances. The unique receipt record stores transfer ID, physical receipt date, confirming administrator, reason and actual confirmation timestamp. Matching retries return the existing record; changed data cannot overwrite it. The normal closed-day, today's-shift, historical-sale and unrelated-inventory-movement restrictions remain enforced. Every blocking inbound transfer must be confirmed separately; unconfirmed or non-central entries still prevent pending sales.

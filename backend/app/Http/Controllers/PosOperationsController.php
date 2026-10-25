@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\CashShiftService;
+use App\Services\PendingTransferReceiptService;
 use App\Services\PosAccess;
 use App\Services\PosDailyReportService;
 use App\Services\PosInventoryOperationsService;
@@ -25,6 +26,7 @@ class PosOperationsController extends Controller
         });
 
         return response()->json(['today' => now()->toDateString(), 'inventory' => $inventory->rows($location), 'requests' => $requests,
+            'pending_transfers' => $request->user()->hasRole('administrator') && $request->user()->can('orders.manage') && $request->user()->can('inventory.manage') ? app(PendingTransferReceiptService::class)->rows($location->id) : [],
             'shift' => $shift && ((int) $shift->user_id === $request->user()->id || $request->user()->can('orders.manage')) ? $cash->summary((int) $shift->id, $request->user()) : null,
             'other_shift_open' => $shift !== null && (int) $shift->user_id !== $request->user()->id,
             'day_closed' => DB::table('inventory_closings')->where('inventory_location_id', $location->id)->where('business_date', now()->toDateString())->exists()]);
@@ -33,6 +35,11 @@ class PosOperationsController extends Controller
     public function open(Request $request, CashShiftService $cash): JsonResponse
     {
         return response()->json(['id' => $cash->open($request->all(), $request->user())], 201);
+    }
+
+    public function receivedYesterday(Request $request, int $transfer, PendingTransferReceiptService $receipts): JsonResponse
+    {
+        return response()->json(['id' => $receipts->confirm($transfer, $request->all(), $request->user())], 201);
     }
 
     public function close(Request $request, int $shift, CashShiftService $cash): JsonResponse

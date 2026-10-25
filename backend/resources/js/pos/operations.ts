@@ -1,7 +1,8 @@
 export type InventoryRow = {variant_id: number; name: string; sku: string; available: number; quarantine: number; minimum: number; target: number; central_available: number; suggested: number; active: boolean};
+export type PendingTransfer = {id:number; created_at:string; received_on:string|null; confirmed_at:string|null; reason:string|null; items:{name:string;quantity:number}[]};
 export type ShiftMethod = {payment_method_id: number; name: string; code: string; opening: number; sales: number; incoming: number; outgoing: number; expected: number; counted?: number; difference?: number};
 export type Shift = {id: number; cashier_id: number; cashier: string; opened_at: string; business_date?: string; pending_day_reason?: string | null; closed_at: string | null; opening_cash: number; methods: ShiftMethod[]; sales_count: number; sales_total: number; discount_total: number; reason?: string};
-export type OperationsState = {today: string; inventory: InventoryRow[]; shift: Shift | null; other_shift_open: boolean; day_closed: boolean; requests: {id: number; status: string; reason: string; items: {variant_id: number; quantity: number}[]; inventory_transfer_id: number | null}[]};
+export type OperationsState = {today: string; inventory: InventoryRow[]; pending_transfers?:PendingTransfer[]; shift: Shift | null; other_shift_open: boolean; day_closed: boolean; requests: {id: number; status: string; reason: string; items: {variant_id: number; quantity: number}[]; inventory_transfer_id: number | null}[]};
 export const money = (cents: number) => new Intl.NumberFormat('es-PE', {style: 'currency', currency: 'PEN'}).format(cents / 100);
 export function units(value: unknown): number {
     const match = /^(\d+)(?:[.,](\d{0,2}))?$/.exec(String(value).trim());

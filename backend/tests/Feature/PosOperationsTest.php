@@ -13,7 +13,9 @@ use App\Models\ProductVariant;
 use App\Models\PromoCode;
 use App\Models\User;
 use App\Services\CashShiftService;
+use App\Services\LocationInventoryService;
 use App\Services\OrderReturnService;
+use App\Services\PendingTransferReceiptService;
 use App\Services\PointOfSaleService;
 use App\Services\PosDailyReportService;
 use App\Services\PosInventoryOperationsService;
@@ -129,6 +131,70 @@ it('blocks opening yesterday after a stock movement today or an existing histori
     DB::table('inventory_movements')->delete();
     app(PointOfSaleService::class)->sell([...$this->historical, 'sold_on' => now()->subDay()->toDateString()], $this->manager);
     expect(fn () => app(CashShiftService::class)->open($opening, $this->manager))->toThrow(ValidationException::class);
+});
+
+it('requires confirmation of every late central receipt and never moves its stock twice', function () {
+    DB::table('cash_shifts')->delete();
+    $central = app(LocationInventoryService::class)->central();
+    $ids = [];
+    foreach ([3, 2] as $quantity) {
+        $ids[] = app(LocationInventoryService::class)->transfer(['submission_id' => (string) Str::uuid(), 'from_location_id' => $central->id, 'to_location_id' => $this->point->id, 'reason' => 'Entrega física de ayer registrada hoy', 'items' => [['variant_id' => $this->variant->id, 'quantity' => $quantity]]], $this->manager);
+    }
+    $opening = [...$this->opening, 'pending_yesterday' => true, 'reason' => 'Ventas de ayer pendientes'];
+    $confirm = ['location_id' => $this->point->id, 'received_on' => now()->subDay()->toDateString(), 'reason' => 'Recibidos físicamente ayer, digitados hoy'];
+    $before = DB::table('inventory_movements')->get()->toJson();
+    $transfersBefore = DB::table('inventory_transfers')->get()->toJson();
+    $receipts = app(PendingTransferReceiptService::class);
+    expect(fn () => app(CashShiftService::class)->open($opening, $this->manager))->toThrow(ValidationException::class);
+    $id = $receipts->confirm($ids[0], $confirm, $this->manager);
+    expect($receipts->confirm($ids[0], $confirm, $this->manager))->toBe($id);
+    expect(fn () => $receipts->confirm($ids[0], [...$confirm, 'reason' => 'Un motivo diferente'], $this->manager))->toThrow(ConflictHttpException::class);
+    expect(fn () => app(CashShiftService::class)->open($opening, $this->manager))->toThrow(ValidationException::class);
+    $receipts->confirm($ids[1], $confirm, $this->manager);
+    expect(DB::table('inventory_movements')->get()->toJson())->toBe($before)
+        ->and(DB::table('inventory_transfers')->get()->toJson())->toBe($transfersBefore)
+        ->and(LocationStock::first()->quantity)->toBe(15)->and($this->variant->fresh()->stock)->toBe(15)
+        ->and(DB::table('transfer_receipt_confirmations')->count())->toBe(2);
+    $shift = app(CashShiftService::class)->open($opening, $this->manager);
+    $order = app(PointOfSaleService::class)->sell($this->sale, $this->manager);
+    app(PointOfSaleService::class)->sell([...$this->sale, 'pos_submission_id' => (string) Str::uuid()], $this->manager);
+    expect($order->cash_shift_id)->toBe($shift)->and($order->sold_on->toDateString())->toBe($confirm['received_on'])->and(LocationStock::first()->quantity)->toBe(13);
+});
+
+it('restricts late receipt confirmation to authorized administrators and yesterday at the same point', function () {
+    DB::table('cash_shifts')->delete();
+    $central = app(LocationInventoryService::class)->central();
+    $transfer = app(LocationInventoryService::class)->transfer(['submission_id' => (string) Str::uuid(), 'from_location_id' => $central->id, 'to_location_id' => $this->point->id, 'reason' => 'Recepción pendiente de ayer', 'items' => [['variant_id' => $this->variant->id, 'quantity' => 1]]], $this->manager);
+    $data = ['location_id' => $this->point->id, 'received_on' => now()->subDay()->toDateString(), 'reason' => 'Se registró hoy la recepción'];
+    $service = app(PendingTransferReceiptService::class);
+    expect(fn () => $service->confirm($transfer, $data, $this->seller))->toThrow(HttpException::class);
+    expect(fn () => $service->confirm($transfer, [...$data, 'received_on' => now()->toDateString()], $this->manager))->toThrow(ValidationException::class);
+    expect(fn () => $service->confirm($transfer, [...$data, 'reason' => '     '], $this->manager))->toThrow(ValidationException::class);
+    DB::table('inventory_transfers')->where('id', $transfer)->update(['created_at' => now()->subDay()]);
+    expect(fn () => $service->confirm($transfer, $data, $this->manager))->toThrow(ValidationException::class);
+    expect(DB::table('transfer_receipt_confirmations')->count())->toBe(0);
+});
+
+it('never lets a late receipt bypass a today shift even after it is closed', function () {
+    opsClose($this);
+    $central = app(LocationInventoryService::class)->central();
+    $transfer = app(LocationInventoryService::class)->transfer(['submission_id' => (string) Str::uuid(), 'from_location_id' => $central->id, 'to_location_id' => $this->point->id, 'reason' => 'Recepción pendiente de ayer', 'items' => [['variant_id' => $this->variant->id, 'quantity' => 1]]], $this->manager);
+    expect(fn () => app(PendingTransferReceiptService::class)->confirm($transfer, ['location_id' => $this->point->id, 'received_on' => now()->subDay()->toDateString(), 'reason' => 'Recibido ayer antes de vender'], $this->manager))->toThrow(ValidationException::class);
+    expect(DB::table('transfer_receipt_confirmations')->count())->toBe(0);
+});
+
+it('exposes reviewed late receipts through the protected POS API without changing balances', function () {
+    DB::table('cash_shifts')->delete();
+    $central = app(LocationInventoryService::class)->central();
+    $transfer = app(LocationInventoryService::class)->transfer(['submission_id' => (string) Str::uuid(), 'from_location_id' => $central->id, 'to_location_id' => $this->point->id, 'reason' => 'Entrega de ayer registrada hoy', 'items' => [['variant_id' => $this->variant->id, 'quantity' => 1]]], $this->manager);
+    $this->actingAs($this->manager)->getJson('/pos/api/operations?location_id='.$this->point->id)->assertOk()->assertJsonPath('pending_transfers.0.id', $transfer)->assertJsonPath('pending_transfers.0.received_on', null)->assertJsonPath('pending_transfers.0.items.0.quantity', 1);
+    $data = ['location_id' => $this->point->id, 'received_on' => now()->subDay()->toDateString(), 'reason' => 'Productos recibidos ayer físicamente'];
+    $url = '/pos/api/operations/transfers/'.$transfer.'/received-yesterday';
+    $this->postJson($url, $data)->assertCreated();
+    $this->postJson($url, $data)->assertCreated();
+    $this->getJson('/pos/api/operations?location_id='.$this->point->id)->assertOk()->assertJsonPath('pending_transfers.0.received_on', $data['received_on']);
+    $this->actingAs($this->seller)->postJson($url, $data)->assertForbidden();
+    expect(LocationStock::first()->quantity)->toBe(11)->and(DB::table('transfer_receipt_confirmations')->count())->toBe(1);
 });
 
 function opsClose(object $test): array
