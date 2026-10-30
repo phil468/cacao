@@ -27,8 +27,9 @@ class PosDailyReportService
             }
         }
         $shifts = DB::table('cash_shifts')->join('users', 'users.id', '=', 'cash_shifts.user_id')->where('inventory_location_id', $location->id)->whereRaw('DATE(COALESCE(business_date, opened_at)) = ?', [$date])
-            ->select('cash_shifts.*', 'users.name as cashier')->orderBy('cash_shifts.id')->get()->map(function ($row) {
+            ->select('cash_shifts.*', 'users.name as cashier')->orderBy('cash_shifts.id')->get()->map(function ($row) use ($actor) {
                 $row->closing_snapshot = $row->closing_snapshot ? json_decode($row->closing_snapshot, true, 512, JSON_THROW_ON_ERROR) : null;
+                $row->summary = app(CashShiftService::class)->summary((int) $row->id, $actor);
 
                 return $row;
             });
@@ -36,13 +37,17 @@ class PosDailyReportService
         if ($closing) {
             $closing->snapshot = json_decode($closing->snapshot, true, 512, JSON_THROW_ON_ERROR);
         }
+        $inventoryRows = $closing->snapshot['rows'] ?? [];
+        if (! $closing && $date === now()->toDateString()) {
+            $inventoryRows = app(PosInventoryOperationsService::class)->rows($location);
+        }
 
         return ['date' => $date, 'location' => $location->name,
             'sales_total' => (int) $orders->sum('total_amount'), 'discount_total' => (int) $orders->sum('discount_amount'), 'sales_count' => $orders->count(), 'payments' => $methods,
             'historical_total' => (int) $orders->where('is_historical', true)->sum('total_amount'), 'historical_count' => $orders->where('is_historical', true)->count(),
             'unassigned_sales_total' => (int) $orders->whereNull('cash_shift_id')->where('is_historical', false)->sum('total_amount'),
             'orders' => $orders->map(fn (Order $o): array => ['id' => $o->id, 'number' => $o->number, 'total' => $o->total_amount, 'historical' => $o->is_historical, 'registered_at' => $o->created_at->toDateTimeString(), 'cash_shift_id' => $o->cash_shift_id]),
-            'shifts' => $shifts, 'inventory_closing' => $closing,
+            'shifts' => $shifts, 'inventory_closing' => $closing, 'inventory_rows' => $inventoryRows,
             'operations' => DB::table('inventory_operations')->where('inventory_location_id', $location->id)->whereDate('created_at', $date)->orderBy('id')->get()->map(function ($row) {
                 $row->items = json_decode($row->items, true, 512, JSON_THROW_ON_ERROR);
 

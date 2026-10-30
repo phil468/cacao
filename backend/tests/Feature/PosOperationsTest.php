@@ -60,6 +60,17 @@ beforeEach(function () {
     $this->historical = [...$this->sale, 'pos_submission_id' => (string) Str::uuid(), 'is_historical' => true, 'sold_on' => now()->subDays(2)->toDateString(), 'historical_reason' => 'Regularización de venta antigua', 'items' => [['variant_id' => $this->variant->id, 'quantity' => 2, 'unit_price_amount' => 1500]]];
 });
 
+it('reports current inventory and open cash without creating a closing', function () {
+    $report = app(PosDailyReportService::class)->build($this->point->id, now()->toDateString(), $this->manager);
+    expect($report['inventory_closing'])->toBeNull()
+        ->and(collect($report['inventory_rows'])->firstWhere('variant_id', $this->variant->id)['available'])->toBe(10)
+        ->and($report['shifts']->first()->summary['methods'][0]['expected'])->toBe(1000)
+        ->and($report['shifts']->first()->summary['closed_at'])->toBeNull()
+        ->and(DB::table('inventory_closings')->count())->toBe(0);
+    $past = app(PosDailyReportService::class)->build($this->point->id, now()->subDays(3)->toDateString(), $this->manager);
+    expect($past['inventory_rows'])->toBe([])->and($past['shifts'])->toHaveCount(0);
+});
+
 it('registers yesterday pending sales in yesterday cash and current stock with real audit timestamps', function () {
     DB::table('cash_shifts')->delete(); // Remove the empty fixture shift, never a business record.
     $opening = [...$this->opening, 'pending_yesterday' => true, 'reason' => 'Ventas de ayer no ingresadas'];
@@ -340,6 +351,10 @@ it('audits count differences only for inventory managers and preserves the closi
     $this->travel(1)->days();
     app(PosInventoryOperationsService::class)->record(opsOut($this), $this->manager);
     expect(DB::table('inventory_closings')->value('snapshot'))->toBe($snapshot);
+    $saved = json_decode($snapshot, true);
+    $report = app(PosDailyReportService::class)->build($this->point->id, now()->subDay()->toDateString(), $this->manager);
+    expect($report['inventory_rows'])->toBe($saved['rows'])
+        ->and($report['shifts']->first()->summary['closed_at'])->not->toBeNull();
 });
 it('caps replenishment suggestions at central stock after deducting point stock', function (int $available, int $central, int $minimum, int $target, int $expected) {
     LocationStock::where('inventory_location_id', $this->point->id)->update(['quantity' => $available]);

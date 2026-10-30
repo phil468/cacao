@@ -2,6 +2,7 @@
 import {computed, onBeforeUnmount, ref, watch} from 'vue';
 import {api, ApiError} from './api';
 import {money, units} from './operations';
+import PosReportTables from './PosReportTables.vue';
 import type {OperationsState, PendingTransfer, Shift} from './operations';
 const props = defineProps<{locationId: number; state: OperationsState; refreshing: boolean; user: {id: number; can_discount: boolean; can_inventory: boolean; can_historical: boolean}; methods: {id: number; name: string; code: string}[]}>();
 const emit = defineEmits<{refresh: []; message: [text: string]; error: [text: string]; lock: [value: boolean]}>();
@@ -16,7 +17,10 @@ const kind = ref('gift'), entryKind = ref('in'), entryAmount = ref(''), entryMet
 type Review = {path: string; payload: Record<string, unknown>; title: string; lines: string[]};
 const review = ref<Review | null>(null), pending = ref<Review | null>(null), lastClose = ref<Shift | null>(null);
 type Report = {date: string; sales_total: number; sales_count: number; discount_total: number; historical_total: number; historical_count: number; unassigned_sales_total: number; payments: Record<string, number>; orders: {id: number; number: string; total: number; historical: boolean; registered_at: string}[]; shifts: {id: number; cashier: string; opened_at: string; closed_at: string | null; closing_snapshot: Shift | null}[]; inventory_closing: {snapshot: {rows: {variant_id: number; name: string; sku: string; opening: number; available: number; counted: number; difference: number; quarantine_counted: number; quarantine_difference: number; movements: Record<string,number>}[]}} | null; operations: {id: number; kind: string; reason: string; created_at: string; items: {variant_id: number; quantity: number}[]}[]};
-const report = ref<Report | null>(null), reportDate = ref(props.state.today);
+type InventorySummaryRow = {variant_id:number; name:string; available:number; quarantine?:number; opening?:number; counted?:number; difference?:number; quarantine_counted?:number};
+type SummaryReport = Report & {inventory_rows:InventorySummaryRow[]; shifts:(Report['shifts'][number] & {summary:Shift})[]};
+const report = ref<SummaryReport | null>(null), reportDate = ref(props.state.today);
+watch(() => props.locationId, () => {report.value=null;});
 const locked = computed(() => busy.value || pending.value !== null || props.refreshing);
 watch(() => busy.value || pending.value !== null || review.value !== null, value=>emit('lock',value), {immediate:true});
 onBeforeUnmount(()=>emit('lock',false));
@@ -99,7 +103,7 @@ function prepareSettings() {
         'Solo guarda la configuración del punto seleccionado. No solicita productos ni modifica existencias.',
         ...changed.map(r=>`${r.name}: mínimo ${r.minimum} → ${minimums.value[r.variant_id]}; objetivo ${r.target} → ${targets.value[r.variant_id]}.`)]);
 }
-async function loadReport() {busy.value=true;try{report.value=await api<Report>(`operations/report?location_id=${props.locationId}&date=${reportDate.value}`);}catch(e){emit('error',e instanceof Error?e.message:'No se pudo consultar.');}finally{busy.value=false;}}
+async function loadReport() {busy.value=true;report.value=null;try{report.value=await api<SummaryReport>(`operations/report?location_id=${props.locationId}&date=${reportDate.value}`);}catch(e){emit('error',e instanceof Error?e.message:'No se pudo consultar.');}finally{busy.value=false;}}
 </script>
 
 <template>
@@ -154,6 +158,7 @@ async function loadReport() {busy.value=true;try{report.value=await api<Report>(
   </template>
  </section>
  <section v-if="tab==='report'&&user.can_discount"><h3>Reporte diario por punto</h3><form @submit.prevent="loadReport"><label>Fecha del reporte<input v-model="reportDate" type="date" :max="state.today" required /></label><button>Consultar reporte</button></form><template v-if="report"><p>{{report.sales_count}} venta(s) · Neto {{money(report.sales_total)}} · Descuentos {{money(report.discount_total)}}</p><p>Incorporaciones históricas posteriores: {{report.historical_count}} · {{money(report.historical_total)}}. No cambian los cierres originales.</p><p v-if="report.unassigned_sales_total">Ventas anteriores sin turno: {{money(report.unassigned_sales_total)}}.</p><p v-for="(amount,name) in report.payments" :key="name">{{name}}: {{money(amount)}} (ventas por fecha comercial; no es el saldo físico del turno).</p><h3>Turnos y cierres guardados</h3><article v-for="shift in report.shifts" :key="shift.id" class="operation-row"><strong>#{{shift.id}} · {{shift.cashier}} · {{shift.closed_at?'Cerrado':'Abierto'}}</strong><p>{{shift.opened_at}} → {{shift.closed_at??'pendiente'}}</p><p v-for="method in shift.closing_snapshot?.methods??[]" :key="method.payment_method_id">{{method.name}}: esperado {{money(method.expected)}}, contado/verificado {{money(method.counted??0)}}, diferencia {{money(method.difference??0)}}.</p></article><h3>Inventario al cierre</h3><p v-if="!report.inventory_closing">No se confirmó un conteo para este día.</p><article v-for="row in report.inventory_closing?.snapshot.rows??[]" :key="row.variant_id" class="operation-row"><strong>{{row.name}}</strong><p>Inicio: {{row.opening}} · Esperado: {{row.available}} · Contado: {{row.counted}} · Diferencia: {{row.difference}} · Cuarentena contada: {{row.quarantine_counted}} (diferencia {{row.quarantine_difference}})</p><small v-for="(quantity,type) in row.movements" :key="type">{{type}}: {{quantity}} · </small></article><h3>Salidas del día</h3><article v-for="operation in report.operations" :key="operation.id" class="operation-row"><strong>#{{operation.id}} · {{kindNames[operation.kind]}}</strong><p>{{operation.created_at}} · {{operation.reason}}</p><small v-for="item in operation.items" :key="item.variant_id">{{state.inventory.find(r=>r.variant_id===item.variant_id)?.name??('Producto #'+item.variant_id)}}: {{item.quantity}} unidad(es) · </small></article><h3>Ventas por fecha comercial</h3><p v-for="order in report.orders" :key="order.id">#{{order.id}} · {{money(order.total)}} · {{order.historical?'Histórica sin stock/caja actual':'Venta'}} · Registrada: {{order.registered_at}}</p></template></section>
+ <section v-if="tab==='report' && user.can_discount && report"><h3>Tablas resumen · {{report.date}}</h3><PosReportTables :rows="report.inventory_rows" :shifts="report.shifts" :closed="report.inventory_closing!==null" /></section>
  </fieldset><button type="button" :disabled="locked || review!==null" @click="emit('refresh')">Actualizar saldos y resúmenes</button>
 </section>
 </template>
